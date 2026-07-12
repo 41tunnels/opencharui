@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenCharUI</title>
+    <script>
+      try {
+        var theme = localStorage.getItem('opencharui-theme')
+        if (theme !== 'light' && theme !== 'dark') theme = 'dark'
+        var root = document.documentElement
+        root.dataset.theme = theme
+        root.classList.remove('dark', 'light')
+        root.classList.add(theme)
+        root.style.colorScheme = theme
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

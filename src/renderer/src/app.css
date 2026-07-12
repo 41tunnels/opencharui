@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+html.light,
+html.light body {
+  color-scheme: light;
+  background-color: rgb(250 250 250);
+  color: rgb(23 23 23);
+}
+
+html.dark,
+html.dark body {
+  color-scheme: dark;
+  background-color: rgb(10 10 10);
+  color: rgb(245 245 245);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@layer components {
+  .ui-shell {
+    @apply bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+  }
+
+  .ui-surface {
+    @apply border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950;
+  }
+
+  .ui-input {
+    @apply rounded-lg border border-neutral-300 bg-white text-neutral-900 outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-500;
+  }
+
+  html.light .ui-input {
+    color-scheme: light;
+  }
+
+  html.dark .ui-input {
+    color-scheme: dark;
+  }
+
+  .ui-btn-ghost {
+    @apply rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-200;
+  }
+
+  .ui-btn-primary {
+    @apply rounded-lg bg-neutral-900 font-medium text-neutral-50 hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white;
+  }
+
+  .ui-btn-outline {
+    @apply rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900;
+  }
+
+  .ui-text-muted {
+    @apply text-neutral-600 dark:text-neutral-400;
+  }
+
+  .ui-text-subtle {
+    @apply text-neutral-500;
+  }
+
+  .ui-hover-row {
+    @apply hover:bg-neutral-100 dark:hover:bg-neutral-900;
+  }
+
+  .ui-active-row {
+    @apply bg-neutral-100 dark:bg-neutral-900;
+  }
+
+  .thought-text {
+    @apply italic;
+  }
+
+  .quote-text {
+    @apply font-semibold;
+  }
+
+  .quote-text::before,
+  .quote-text::after {
+    opacity: 0.7;
+  }
+
+  .quote-text::before {
+    content: '"';
+  }
+
+  .quote-text::after {
+    content: '"';
+  }
+
+  html.light .chat-bubble-assistant .spoken-text,
+  html.light .chat-bubble-assistant .quote-text {
+    color: rgb(0 0 0);
+  }
+
+  html.light .chat-bubble-assistant .thought-text {
+    color: rgb(128 96 192);
+  }
+
+  html.light .chat-bubble-user .spoken-text,
+  html.light .chat-bubble-user .quote-text {
+    color: rgb(250 250 250);
+  }
+
+  html.light .chat-bubble-user .thought-text {
+    color: rgb(216 180 254);
+  }
+
+  html.dark .chat-bubble-assistant .spoken-text,
+  html.dark .chat-bubble-assistant .quote-text {
+    color: rgb(245 245 245);
+  }
+
+  html.dark .chat-bubble-assistant .thought-text {
+    color: rgb(167 139 250);
+  }
+
+  html.dark .chat-bubble-user .spoken-text,
+  html.dark .chat-bubble-user .quote-text {
+    color: rgb(245 245 245);
+  }
+
+  html.dark .chat-bubble-user .thought-text {
+    color: rgb(196 181 253);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(212 212 212);
+  border-radius: 4px;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgb(64 64 64);
+}
+
+.ui-number-input::-webkit-inner-spin-button,
+.ui-number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ui-number-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
