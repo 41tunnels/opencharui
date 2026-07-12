@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useAppStore } from '@renderer/stores/app'
 import AppHeader from '@renderer/components/AppHeader.vue'
 import AppSidebar from '@renderer/components/AppSidebar.vue'
+import OllamaSetupOverlay from '@renderer/components/OllamaSetupOverlay.vue'
 
 const route = useRoute()
 const store = useAppStore()
@@ -51,5 +52,7 @@ onUnmounted(() => {
         <RouterView :key="route.fullPath" />
       </main>
     </div>
+
+    <OllamaSetupOverlay v-if="!store.llmStatus.ollamaAvailable && route.name !== 'settings'" />
   </div>
 </template>
