@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { DEFAULT_OLLAMA_URL } from '@browser/llm/ollama'
 import { useAppStore } from '@renderer/stores/app'
 
+const props = defineProps<{
+  previewProduction?: boolean
+}>()
+
 const router = useRouter()
 const store = useAppStore()
 const checking = ref(false)
+const platformTab = ref<'windows' | 'macos'>('windows')
 
 const isDev = import.meta.env.DEV
+const showProductionSetup = computed(() => !isDev || props.previewProduction)
 const PRODUCTION_APP_URL = 'https://opencharui.github.io/web'
 const PRODUCTION_OLLAMA_ORIGIN = 'https://opencharui.github.io'
 
@@ -47,8 +53,16 @@ const openSettings = () => {
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div
-      class="ui-surface max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border p-6 shadow-xl"
+      class="ui-surface max-h-[90vh] w-fit max-w-full overflow-y-auto rounded-2xl border p-6 shadow-xl"
     >
+      <p
+        v-if="previewProduction"
+        class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+      >
+        Dev preview: production setup. Remove
+        <code class="text-amber-900 dark:text-amber-100">?setup=production</code>
+        from the URL to return to the dev overlay.
+      </p>
       <div class="mb-5 flex items-start gap-3">
         <div
           class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-500"
@@ -72,7 +86,7 @@ const openSettings = () => {
         <div>
           <h2 class="text-lg font-semibold">Set up OpenCharUI</h2>
           <p class="mt-1 text-sm ui-text-muted">
-            <template v-if="!isDev">
+            <template v-if="showProductionSetup">
               Ollama is not connected. Follow these steps to use OpenCharUI at
               <a
                 :href="PRODUCTION_APP_URL"
@@ -145,7 +159,7 @@ const openSettings = () => {
           >
           <div>
             <p class="font-medium">Allow browser access</p>
-            <template v-if="isDev">
+            <template v-if="!showProductionSetup">
               <p class="mt-1 ui-text-muted">
                 In development, OpenCharUI proxies Ollama at
                 <code class="text-neutral-700 dark:text-neutral-300">/ollama</code> — no extra
@@ -178,14 +192,48 @@ const openSettings = () => {
                 instead.
               </p>
 
-              <div class="mt-4 space-y-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+              <div class="mt-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
                 <p class="text-xs font-medium uppercase tracking-wide ui-text-subtle">
                   Make it permanent
                 </p>
 
-                <div>
-                  <p class="font-medium">Windows</p>
-                  <ol class="mt-2 list-decimal space-y-1 pl-4 ui-text-muted">
+                <div
+                  class="mt-3 flex gap-1 rounded-lg border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-900/50"
+                  role="tablist"
+                  aria-label="Platform setup"
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                    :class="
+                      platformTab === 'windows'
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+                        : 'ui-text-muted hover:text-neutral-900 dark:hover:text-neutral-200'
+                    "
+                    :aria-selected="platformTab === 'windows'"
+                    @click="platformTab = 'windows'"
+                  >
+                    Windows
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                    :class="
+                      platformTab === 'macos'
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
+                        : 'ui-text-muted hover:text-neutral-900 dark:hover:text-neutral-200'
+                    "
+                    :aria-selected="platformTab === 'macos'"
+                    @click="platformTab = 'macos'"
+                  >
+                    macOS
+                  </button>
+                </div>
+
+                <div v-show="platformTab === 'windows'" role="tabpanel" class="mt-3">
+                  <ol class="list-decimal space-y-1 pl-4 ui-text-muted">
                     <li>Quit Ollama from the taskbar tray icon.</li>
                     <li>
                       Open Start and search for
@@ -214,9 +262,8 @@ const openSettings = () => {
                   </p>
                 </div>
 
-                <div>
-                  <p class="font-medium">macOS</p>
-                  <p class="mt-1 ui-text-muted">
+                <div v-show="platformTab === 'macos'" role="tabpanel" class="mt-3">
+                  <p class="ui-text-muted">
                     Save this LaunchAgent so the variable is restored on every login:
                   </p>
                   <code

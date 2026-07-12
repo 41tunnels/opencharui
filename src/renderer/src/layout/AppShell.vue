@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@renderer/stores/app'
 import AppHeader from '@renderer/components/AppHeader.vue'
@@ -8,6 +8,12 @@ import OllamaSetupOverlay from '@renderer/components/OllamaSetupOverlay.vue'
 
 const route = useRoute()
 const store = useAppStore()
+
+const isSetupPreview = computed(() => {
+  if (!import.meta.env.DEV) return false
+  if (route.query.setup === 'production') return true
+  return new URLSearchParams(window.location.search).get('setup') === 'production'
+})
 
 let unsubChunk: (() => void) | undefined
 let unsubDone: (() => void) | undefined
@@ -53,6 +59,9 @@ onUnmounted(() => {
       </main>
     </div>
 
-    <OllamaSetupOverlay v-if="!store.llmStatus.ollamaAvailable && route.name !== 'settings'" />
+    <OllamaSetupOverlay
+      v-if="(!store.llmStatus.ollamaAvailable || isSetupPreview) && route.name !== 'settings'"
+      :preview-production="isSetupPreview"
+    />
   </div>
 </template>
