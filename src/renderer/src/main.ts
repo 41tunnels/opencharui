@@ -8,7 +8,7 @@ import App from './App.vue'
 import router from './router'
 import './app.css'
 
-applyTheme(readCachedTheme() ?? 'dark')
+applyTheme(readCachedTheme() ?? 'light')
 
 const bootstrap = async (): Promise<void> => {
   window.api = createBrowserApi()

@@ -142,7 +142,7 @@ export const DEFAULT_UI_STATE: AppUiState = {
     personas: true,
     chats: true
   },
-  theme: 'dark'
+  theme: 'light'
 }
 
 export interface ChatChunkEvent {
