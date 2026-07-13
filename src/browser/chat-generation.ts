@@ -12,7 +12,7 @@ import {
 } from './db/chats'
 import { getSettings } from './db/settings'
 import * as ollama from './llm/ollama'
-import { buildMessages, buildOpeningMessages, deriveChatTitle } from '@shared/prompt-builder'
+import { buildMessages, buildOpeningMessages, deriveChatTitle, renderCharacterTemplate } from '@shared/prompt-builder'
 import {
   resolveChatGenerationParams,
   resolveChatContextWindowSize,
@@ -142,9 +142,10 @@ export const generateOpeningMessage = async (
     return null
   }
 
-  const assistantMessage = await addMessage(chatId, 'assistant', greeting)
-  await renameChat(chatId, deriveChatTitle(greeting))
-  return { messageId: assistantMessage.id, content: greeting }
+  const renderedGreeting = renderCharacterTemplate(greeting, character, chat.persona)
+  const assistantMessage = await addMessage(chatId, 'assistant', renderedGreeting)
+  await renameChat(chatId, deriveChatTitle(renderedGreeting))
+  return { messageId: assistantMessage.id, content: renderedGreeting }
 }
 
 export const sendUserMessage = async (

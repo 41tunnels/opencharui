@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { safeParseChatSave } from '@shared/chat-schema'
+import { normalizeCharacterImportData } from '@shared/character-card-import'
 import { safeParseCharacter } from '@shared/character-schema'
 import { formatRelativeTime } from '@shared/format-time'
 import { useAppStore } from '@renderer/stores/app'
@@ -144,6 +145,7 @@ const submitCharacterImport = async () => {
       return
     }
 
+    raw = normalizeCharacterImportData(raw)
     const result = safeParseCharacter(raw)
     if (!result.success) {
       characterImportError.value = result.error.errors.map((e) => e.message).join(', ')
@@ -152,6 +154,25 @@ const submitCharacterImport = async () => {
 
     const character = { ...result.data, id: crypto.randomUUID() }
     await window.api.characters.save(character)
+    await store.refreshCharacters()
+    showCharacterImport.value = false
+    characterImportJson.value = ''
+    router.push({ name: 'character-edit', params: { id: character.id } })
+  } catch (err) {
+    characterImportError.value = err instanceof Error ? err.message : 'Import failed'
+  } finally {
+    characterImporting.value = false
+  }
+}
+
+const importCharacterFromFile = async () => {
+  characterImportError.value = null
+  characterImporting.value = true
+
+  try {
+    const character = await window.api.characters.import()
+    if (!character) return
+
     await store.refreshCharacters()
     showCharacterImport.value = false
     characterImportJson.value = ''
@@ -346,7 +367,7 @@ const submitCharacterImport = async () => {
           class="ui-btn-outline mt-2 w-full px-3 py-2 text-sm"
           @click="toggleCharacterImport"
         >
-          {{ showCharacterImport ? 'Cancel import' : '+ Import character JSON' }}
+          {{ showCharacterImport ? 'Cancel import' : '+ Import character' }}
         </button>
 
         <div v-if="showCharacterImport" class="mt-2 space-y-2">
@@ -364,11 +385,20 @@ const submitCharacterImport = async () => {
           >
             Import
           </button>
+          <button
+            type="button"
+            class="ui-btn-outline w-full px-3 py-2 text-sm disabled:opacity-50"
+            :disabled="characterImporting"
+            @click="importCharacterFromFile"
+          >
+            Import JSON or PNG file
+          </button>
           <p v-if="characterImportError" class="text-xs text-red-600 dark:text-red-400">
             {{ characterImportError }}
           </p>
           <p class="text-xs ui-text-subtle">
-            Paste JSON from character JSON mode. A new id is assigned on import.
+            Paste OpenCharUI or SillyTavern JSON, or import a PNG character card. A new id is
+            assigned on import.
           </p>
         </div>
       </div>

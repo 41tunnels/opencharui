@@ -1,4 +1,8 @@
 import { get, getAll, put, deleteByKey, getAllByIndex, deleteMessagesForChat } from './index'
+import {
+  normalizeCharacterImportData,
+  parseCharacterImportFile
+} from '@shared/character-card-import'
 import { parseCharacter, safeParseCharacter } from '@shared/character-schema'
 import type { Character, CharacterSummary } from '@shared/types'
 
@@ -48,11 +52,11 @@ export const deleteCharacter = async (id: string): Promise<void> => {
   await deleteByKey('characters', id)
 }
 
-const pickCharacterJson = (): Promise<unknown> => {
+const pickCharacterFile = (): Promise<{ raw: unknown; avatar?: string } | null> => {
   return new Promise((resolve, reject) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.json,application/json'
+    input.accept = '.json,application/json,.png,image/png'
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) {
@@ -60,8 +64,7 @@ const pickCharacterJson = (): Promise<unknown> => {
         return
       }
       try {
-        const text = await file.text()
-        resolve(JSON.parse(text))
+        resolve(await parseCharacterImportFile(file))
       } catch (err) {
         reject(err)
       }
@@ -72,9 +75,10 @@ const pickCharacterJson = (): Promise<unknown> => {
 }
 
 export const importCharacter = async (): Promise<Character | null> => {
-  const raw = await pickCharacterJson()
-  if (raw === null) return null
+  const picked = await pickCharacterFile()
+  if (picked === null) return null
 
+  const raw = normalizeCharacterImportData(picked.raw, picked.avatar)
   const parsed = safeParseCharacter(raw)
   if (!parsed.success) {
     throw new Error(parsed.error.errors.map((e) => e.message).join(', '))

@@ -2,7 +2,7 @@ import { get, getAll, put, deleteByKey, getAllByIndex, deleteMessagesForChat } f
 import { ensureCharacterExists, getCharacter } from './characters'
 import { ensurePersonaExists, getPersona, resolvePersonaForChat } from './personas'
 import { DEFAULT_CONTEXT_WINDOW_SIZE } from '@shared/chat-settings'
-import { deriveChatTitle } from '@shared/prompt-builder'
+import { deriveChatTitle, renderCharacterTemplate } from '@shared/prompt-builder'
 import type { Chat, ChatSummary, ChatWithMessages, Message } from '@shared/types'
 
 const resolveLastMessageAt = async (chat: Chat): Promise<number | undefined> => {
@@ -69,8 +69,9 @@ export const createChat = async (
 
   const greeting = character.greeting?.trim()
   if (greeting) {
-    await addMessage(chat.id, 'assistant', greeting)
-    await renameChat(chat.id, deriveChatTitle(greeting))
+    const renderedGreeting = renderCharacterTemplate(greeting, character, persona ?? undefined)
+    await addMessage(chat.id, 'assistant', renderedGreeting)
+    await renameChat(chat.id, deriveChatTitle(renderedGreeting))
   }
 
   const created = await getChat(chat.id)

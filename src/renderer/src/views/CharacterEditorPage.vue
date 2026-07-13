@@ -194,10 +194,10 @@ const exportChar = async () => {
           />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Speaking style</span>
-          <input
+          <span class="mb-1 block text-sm ui-text-muted">Personality and speaking style</span>
+          <textarea
             v-model="form.personality.speakingStyle"
-            type="text"
+            rows="4"
             class="ui-input w-full px-3 py-2 text-sm"
           />
         </label>

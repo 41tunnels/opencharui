@@ -3,10 +3,18 @@ import type { Character, Message, Persona } from './types'
 const HISTORY_WINDOW = 20
 const DEFAULT_USER_NAME = 'Sam'
 
-const renderPromptTemplate = (content: string, character: Character, persona?: Persona): string => {
+export const renderCharacterTemplate = (
+  content: string,
+  character: Character,
+  persona?: Persona
+): string => {
   return content
     .replaceAll('{{char}}', character.name)
     .replaceAll('{{user}}', persona?.name ?? DEFAULT_USER_NAME)
+}
+
+const renderPromptTemplate = (content: string, character: Character, persona?: Persona): string => {
+  return renderCharacterTemplate(content, character, persona)
 }
 
 const buildCharacterContext = (character: Character): string[] => {
@@ -75,8 +83,12 @@ export const buildOpeningMessages = (
   character: Character,
   persona?: Persona
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> => {
-  const openingGuidance = character.greeting?.trim()
-    ? `Scene direction for your opening (match the tone and situation, but write fresh dialogue — do not repeat these lines verbatim):\n${character.greeting.trim()}`
+  const greeting = character.greeting?.trim()
+  const renderedGreeting = greeting
+    ? renderCharacterTemplate(greeting, character, persona)
+    : null
+  const openingGuidance = renderedGreeting
+    ? `Scene direction for your opening (match the tone and situation, but write fresh dialogue — do not repeat these lines verbatim):\n${renderedGreeting}`
     : null
 
   return [

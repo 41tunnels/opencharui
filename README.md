@@ -1,11 +1,13 @@
 # OpenCharUI
 
-Browser-based roleplay chat app powered by local Ollama inference. All data is stored in the browser via IndexedDB.
+Browser-based roleplay chat app powered by local AI models via [Ollama](https://ollama.com). Everything runs on your machine — chats, characters, and inference stay local, and nothing is sent to the cloud.
 
 ## Features
 
+- **Private by design** — uses local AI models on your machine; your chats and character data never leave your device
+- **PNG character card import** — import SillyTavern-compatible character cards (V1/V2/V3) from PNG or JSON
 - ChatGPT-like UI with collapsible Characters and Chats sidebar
-- Character cards defined as JSON (personality, scenario, greeting)
+- Character cards with personality, scenario, and greeting
 - Streaming chat via local [Ollama](https://ollama.com)
 - IndexedDB persistence for chats, messages, and characters
 

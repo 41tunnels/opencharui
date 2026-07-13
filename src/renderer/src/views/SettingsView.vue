@@ -148,7 +148,7 @@ const refreshOllama = async () => {
           class="ui-btn-outline px-4 py-2 text-sm"
           @click="importCharacter"
         >
-          Import character JSON
+          Import character (JSON or PNG)
         </button>
         <button
           class="ui-btn-outline px-4 py-2 text-sm"
