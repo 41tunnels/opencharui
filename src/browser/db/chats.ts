@@ -1,6 +1,17 @@
-import { get, getAll, put, deleteByKey, getAllByIndex, deleteMessagesForChat } from './index'
+import {
+  get,
+  getAll,
+  put,
+  putSilent,
+  deleteByKey,
+  deleteByKeySilent,
+  getAllByIndex,
+  deleteMessagesForChat
+} from './index'
 import { ensureCharacterExists, getCharacter } from './characters'
 import { ensurePersonaExists, getPersona, resolvePersonaForChat } from './personas'
+import { recordTombstone } from './tombstones'
+import { normalizeSavedMessages, type ChatSaveInput } from '@shared/chat-schema'
 import { DEFAULT_CONTEXT_WINDOW_SIZE } from '@shared/chat-settings'
 import { deriveChatTitle, renderCharacterTemplate } from '@shared/prompt-builder'
 import type { Chat, ChatSummary, ChatWithMessages, Message } from '@shared/types'
@@ -80,8 +91,50 @@ export const createChat = async (
 }
 
 export const deleteChat = async (id: string): Promise<void> => {
+  await recordTombstone('chats', id)
   await deleteMessagesForChat(id)
   await deleteByKey('chats', id)
+}
+
+/**
+ * Write a chat received from sync, preserving its id, `createdAt` and remote
+ * `updatedAt`. Unlike `saveChat` it does NOT verify the character/persona exist
+ * (a referenced entity may arrive later in the same sync batch) and writes
+ * silently. `lastMessageAt` is recomputed from the incoming messages.
+ */
+export const applySyncedChat = async (save: ChatSaveInput, updatedAt: number): Promise<void> => {
+  const messages = normalizeSavedMessages(save.messages, save.id)
+
+  await deleteMessagesForChat(save.id, { silent: true })
+  for (const message of messages) {
+    await putSilent('messages', message)
+  }
+
+  const lastMessageAt =
+    messages.length > 0 ? Math.max(...messages.map((message) => message.createdAt)) : undefined
+  const chat: Chat = {
+    id: save.id,
+    characterId: save.characterId,
+    ...(save.personaId ? { personaId: save.personaId } : {}),
+    title: save.title,
+    modelId: save.modelId,
+    provider: save.provider,
+    createdAt: save.createdAt,
+    updatedAt,
+    ...(lastMessageAt !== undefined ? { lastMessageAt } : {}),
+    ...(save.systemPrompt !== undefined ? { systemPrompt: save.systemPrompt } : {}),
+    ...(save.temperature !== undefined ? { temperature: save.temperature } : {}),
+    ...(save.topP !== undefined ? { topP: save.topP } : {}),
+    ...(save.maxTokens !== undefined ? { maxTokens: save.maxTokens } : {}),
+    ...(save.contextWindowSize !== undefined ? { contextWindowSize: save.contextWindowSize } : {})
+  }
+  await putSilent('chats', chat)
+}
+
+/** Apply a remote chat deletion: drop the chat and its messages. */
+export const applyChatTombstone = async (id: string): Promise<void> => {
+  await deleteMessagesForChat(id, { silent: true })
+  await deleteByKeySilent('chats', id)
 }
 
 export const renameChat = async (id: string, title: string): Promise<void> => {

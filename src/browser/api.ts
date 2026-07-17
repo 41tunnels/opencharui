@@ -13,6 +13,7 @@ import * as uiState from './db/ui-state'
 import * as modelNotes from './db/model-notes'
 import * as ollama from './llm/ollama'
 import * as chatGen from './chat-generation'
+import * as deviceSync from './device-sync'
 import { emit, subscribe } from './events'
 import { listChatsForCharacter, listChatsForPersona } from './db/chats'
 
@@ -126,34 +127,46 @@ export const createBrowserApi = (): OpenCharUiApi => {
       get: () => settings.getSettings(),
       save: async (partial) => {
         const saved = await settings.saveSettings(partial)
-        if (partial.ollamaUrl !== undefined) {
+        if (partial.ollamaUrl !== undefined || partial.ollamaApiKey !== undefined) {
           ollama.invalidateOllamaBaseUrl()
+          // Connection changed — re-evaluate sync against the new target.
+          void deviceSync.syncNow()
         }
         return saved
       }
+    },
+    sync: {
+      now: () => deviceSync.syncNow(),
+      getStatus: () => deviceSync.getSyncStatus(),
+      onStatusChanged: (callback) => deviceSync.onSyncStatusChanged(callback)
     },
     ui: {
       get: () => uiState.getUiState(),
       save: (partial) => uiState.saveUiState(partial)
     },
     llm: {
-      getStatus: async () => ({
-        ollamaAvailable: await ollama.probeOllama()
-      }),
+      getStatus: async () => {
+        const probe = await ollama.probeOllama()
+        return {
+          ollamaAvailable: probe === 'ok',
+          usingAmallo: await ollama.isUsingAmallo(),
+          unauthorized: probe === 'unauthorized'
+        }
+      },
       listModels: async () => {
-        const available = await ollama.probeOllama()
-        if (!available) return []
+        const probe = await ollama.probeOllama()
+        if (probe !== 'ok') return []
         return ollama.listModels()
       },
       getModelContextLength: (modelId: string) => ollama.getModelContextLength(modelId),
       pullModel: async (name, onProgress, signal) => {
-        const available = await ollama.probeOllama()
-        if (!available) throw new Error('Ollama is not connected')
+        const probe = await ollama.probeOllama()
+        if (probe !== 'ok') throw new Error('Ollama is not connected')
         return ollama.pullModel(name, onProgress, signal)
       },
       deleteModel: async (name) => {
-        const available = await ollama.probeOllama()
-        if (!available) throw new Error('Ollama is not connected')
+        const probe = await ollama.probeOllama()
+        if (probe !== 'ok') throw new Error('Ollama is not connected')
         return ollama.deleteModel(name)
       }
     },

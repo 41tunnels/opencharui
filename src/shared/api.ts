@@ -12,7 +12,8 @@ import type {
   ModelNotes,
   ModelPullProgress,
   Persona,
-  PersonaSummary
+  PersonaSummary,
+  SyncStatus
 } from '@shared/types'
 import type { ChatSaveInput } from '@shared/chat-schema'
 
@@ -63,6 +64,11 @@ export interface OpenCharUiApi {
   settings: {
     get(): Promise<AppSettings>
     save(settings: Partial<AppSettings>): Promise<AppSettings>
+  }
+  sync: {
+    now(): Promise<SyncStatus>
+    getStatus(): SyncStatus
+    onStatusChanged(callback: (status: SyncStatus, appliedRemote: boolean) => void): () => void
   }
   ui: {
     get(): Promise<AppUiState>

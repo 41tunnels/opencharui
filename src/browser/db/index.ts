@@ -1,9 +1,9 @@
 import { notifyDataChanged } from '../sync'
 
-export type StoreName = 'characters' | 'personas' | 'chats' | 'messages' | 'settings'
+export type StoreName = 'characters' | 'personas' | 'chats' | 'messages' | 'settings' | 'tombstones'
 
 const DB_NAME = 'opencharui'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -58,6 +58,11 @@ export const openDb = (): Promise<IDBDatabase> => {
 
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' })
+        }
+
+        // v3: records deletes so they can propagate to other devices via sync.
+        if (!db.objectStoreNames.contains('tombstones')) {
+          db.createObjectStore('tombstones', { keyPath: 'id' })
         }
       }
     })
@@ -148,7 +153,15 @@ export const deleteByKey = (storeName: StoreName, key: string): Promise<void> =>
     .then(() => notifyDataChanged())
 }
 
-export const deleteMessagesForChat = async (chatId: string): Promise<void> => {
+/** Like deleteByKey but does not notify — used by the sync apply path. */
+export const deleteByKeySilent = (storeName: StoreName, key: string): Promise<void> => {
+  return writeTx(storeName, (store) => store.delete(key)).then(() => undefined)
+}
+
+export const deleteMessagesForChat = async (
+  chatId: string,
+  options: { silent?: boolean } = {}
+): Promise<void> => {
   const messages = await getAllByIndex<{ id: string }>('messages', 'byChatId', chatId)
   if (messages.length === 0) return
 
@@ -166,5 +179,7 @@ export const deleteMessagesForChat = async (chatId: string): Promise<void> => {
           store.delete(message.id)
         }
       })
-  ).then(() => notifyDataChanged())
+  ).then(() => {
+    if (!options.silent) notifyDataChanged()
+  })
 }

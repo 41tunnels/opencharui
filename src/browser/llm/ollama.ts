@@ -12,36 +12,83 @@ export interface ChatParams {
   maxTokens?: number
 }
 
-let cachedBaseUrl: string | null = null
+export interface OllamaConnection {
+  baseUrl: string
+  apiKey: string
+}
+
+let cachedConnection: OllamaConnection | null = null
 
 export const invalidateOllamaBaseUrl = (): void => {
-  cachedBaseUrl = null
+  cachedConnection = null
   clearModelContextCache()
 }
 
 const normalizeOllamaUrl = (url: string): string => url.replace(/\/+$/, '')
 
-const resolveOllamaBaseUrl = async (): Promise<string> => {
-  if (cachedBaseUrl) return cachedBaseUrl
+// Shared by the LLM client and the device-sync engine so both hit the same
+// base URL with the same auth headers (and honour the settings-save cache reset).
+export const resolveConnection = async (): Promise<OllamaConnection> => {
+  if (cachedConnection) return cachedConnection
 
-  const { ollamaUrl } = await getSettings()
+  const { ollamaUrl, ollamaApiKey } = await getSettings()
+  const apiKey = ollamaApiKey.trim()
   const custom = ollamaUrl.trim()
   if (custom) {
-    cachedBaseUrl = normalizeOllamaUrl(custom)
-    return cachedBaseUrl
+    cachedConnection = { baseUrl: normalizeOllamaUrl(custom), apiKey }
+    return cachedConnection
   }
 
-  cachedBaseUrl = import.meta.env.DEV ? DEV_OLLAMA_PROXY : DEFAULT_OLLAMA_URL
-  return cachedBaseUrl
+  cachedConnection = {
+    baseUrl: import.meta.env.DEV ? DEV_OLLAMA_PROXY : DEFAULT_OLLAMA_URL,
+    apiKey
+  }
+  return cachedConnection
 }
 
-export const probeOllama = async (): Promise<boolean> => {
+// Custom headers force a CORS preflight and must be allowlisted by the server,
+// so ngrok-skip-browser-warning (bypasses ngrok's free-tier interstitial) is
+// only sent to ngrok hosts — plain Ollama rejects preflights that request it.
+const isNgrokHost = (baseUrl: string): boolean => {
   try {
-    const baseUrl = await resolveOllamaBaseUrl()
-    const res = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(2000) })
-    return res.ok
+    return new URL(baseUrl).hostname.includes('ngrok')
   } catch {
     return false
+  }
+}
+
+export const buildHeaders = (
+  { baseUrl, apiKey }: OllamaConnection,
+  extra?: Record<string, string>
+): Record<string, string> => ({
+  ...(extra ?? {}),
+  ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+  ...(apiKey && isNgrokHost(baseUrl) ? { 'ngrok-skip-browser-warning': 'true' } : {})
+})
+
+export type OllamaProbeResult = 'ok' | 'unauthorized' | 'unreachable'
+
+/**
+ * True when the configured connection targets an amallo instance rather than a
+ * plain Ollama — inferred from an API key being set (amallo requires a bearer
+ * token; a direct Ollama connection has none).
+ */
+export const isUsingAmallo = async (): Promise<boolean> => {
+  const { apiKey } = await resolveConnection()
+  return apiKey.length > 0
+}
+
+export const probeOllama = async (): Promise<OllamaProbeResult> => {
+  try {
+    const { baseUrl, apiKey } = await resolveConnection()
+    const res = await fetch(`${baseUrl}/api/tags`, {
+      headers: buildHeaders({ baseUrl, apiKey }),
+      signal: AbortSignal.timeout(2000)
+    })
+    if (res.ok) return 'ok'
+    return res.status === 401 ? 'unauthorized' : 'unreachable'
+  } catch {
+    return 'unreachable'
   }
 }
 
@@ -83,10 +130,10 @@ export const getModelContextLength = async (modelId: string): Promise<number> =>
   if (cached !== undefined) return cached
 
   try {
-    const baseUrl = await resolveOllamaBaseUrl()
+    const { baseUrl, apiKey } = await resolveConnection()
     const res = await fetch(`${baseUrl}/api/show`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name: modelId })
     })
     if (!res.ok) {
@@ -105,8 +152,8 @@ export const getModelContextLength = async (modelId: string): Promise<number> =>
 }
 
 export const listModels = async (): Promise<ModelInfo[]> => {
-  const baseUrl = await resolveOllamaBaseUrl()
-  const res = await fetch(`${baseUrl}/api/tags`)
+  const { baseUrl, apiKey } = await resolveConnection()
+  const res = await fetch(`${baseUrl}/api/tags`, { headers: buildHeaders({ baseUrl, apiKey }) })
   if (!res.ok) throw new Error('Failed to list Ollama models')
   const data = (await res.json()) as TagsResponse
   return data.models.map((m) => ({
@@ -157,10 +204,10 @@ export const pullModel = async (
   onProgress: (progress: ModelPullProgress) => void,
   signal?: AbortSignal
 ): Promise<void> => {
-  const baseUrl = await resolveOllamaBaseUrl()
+  const { baseUrl, apiKey } = await resolveConnection()
   const res = await fetch(`${baseUrl}/api/pull`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ name, stream: true }),
     signal
   })
@@ -207,10 +254,10 @@ export const pullModel = async (
 }
 
 export const deleteModel = async (name: string): Promise<void> => {
-  const baseUrl = await resolveOllamaBaseUrl()
+  const { baseUrl, apiKey } = await resolveConnection()
   const res = await fetch(`${baseUrl}/api/delete`, {
     method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ name })
   })
 
@@ -252,10 +299,10 @@ export const chat = async (
 
   console.log('[Ollama] POST /api/chat', body)
 
-  const baseUrl = await resolveOllamaBaseUrl()
+  const { baseUrl, apiKey } = await resolveConnection()
   const res = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal
   })

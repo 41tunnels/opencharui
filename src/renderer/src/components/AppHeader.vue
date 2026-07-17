@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@renderer/stores/app'
 import ModelSelector from '@renderer/components/ModelSelector.vue'
 
 const router = useRouter()
 const store = useAppStore()
+
+const providerLabel = computed(() => (store.llmStatus.usingAmallo ? 'Amallo' : 'Ollama'))
 
 const GITHUB_REPO_URL = 'https://github.com/OpenCharUI/web'
 
@@ -75,7 +78,7 @@ const newChat = async () => {
         :class="store.llmStatus.ollamaAvailable ? 'bg-green-500' : 'bg-red-500'"
       />
       <span class="ui-text-muted">
-        {{ store.llmStatus.ollamaAvailable ? 'Ollama connected' : 'Ollama not connected' }}
+        {{ providerLabel }} {{ store.llmStatus.ollamaAvailable ? 'connected' : 'not connected' }}
       </span>
     </div>
     <div class="ml-auto flex items-center gap-2">

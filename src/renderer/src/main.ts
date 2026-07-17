@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { createBrowserApi } from '@browser/api'
 import { onDataChanged } from '@browser/sync'
+import { startDeviceSync } from '@browser/device-sync'
 import { applyTheme, readCachedTheme } from '@shared/theme'
 import { useAppStore } from '@renderer/stores/app'
 import App from './App.vue'
@@ -35,6 +36,12 @@ const bootstrap = async (): Promise<void> => {
       void store.refreshData()
     }
   })
+
+  // Refresh this tab's UI when a sync run pulled remote changes into IndexedDB.
+  window.api.sync.onStatusChanged((_status, appliedRemote) => {
+    if (appliedRemote && !store.isGenerating) void store.refreshData()
+  })
+  startDeviceSync()
 
   app.mount('#app')
 }

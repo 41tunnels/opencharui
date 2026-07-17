@@ -19,7 +19,11 @@ export const useAppStore = defineStore('app', () => {
   const personas = ref<PersonaSummary[]>([])
   const chats = ref<ChatSummary[]>([])
   const activeChat = ref<ChatWithMessages | null>(null)
-  const llmStatus = ref<LLMStatus>({ ollamaAvailable: false })
+  const llmStatus = ref<LLMStatus>({
+    ollamaAvailable: false,
+    usingAmallo: false,
+    unauthorized: false
+  })
   const models = ref<ModelInfo[]>([])
   const selectedModelId = ref<string | null>(null)
   const streamingText = ref('')

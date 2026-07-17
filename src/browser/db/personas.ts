@@ -1,8 +1,17 @@
-import { get, getAll, put, deleteByKey, getAllByIndex } from './index'
+import {
+  get,
+  getAll,
+  put,
+  putSilent,
+  deleteByKey,
+  deleteByKeySilent,
+  getAllByIndex
+} from './index'
 import { parsePersona, safeParsePersona } from '@shared/persona-schema'
+import { recordTombstone } from './tombstones'
 import type { Chat, Persona, PersonaSummary } from '@shared/types'
 
-type StoredPersona = Persona & { updatedAt: number }
+export type StoredPersona = Persona & { updatedAt: number }
 
 const DEFAULT_PERSONA: Persona = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -83,10 +92,37 @@ export const deletePersona = async (id: string): Promise<void> => {
 
   const chats = await getAllByIndex<Chat>('chats', 'byPersonaId', id)
   for (const chat of chats) {
+    // Reassignment bumps updatedAt, so the change syncs as a normal chat update.
     await put('chats', { ...chat, personaId: replacement.id, updatedAt: Date.now() })
   }
 
+  await recordTombstone('personas', id)
   await deleteByKey('personas', id)
+}
+
+/**
+ * Write a persona received from sync, preserving id and remote `updatedAt`.
+ * Returns false on validation failure.
+ */
+export const applySyncedPersona = async (
+  id: string,
+  data: unknown,
+  updatedAt: number
+): Promise<boolean> => {
+  const parsed = safeParsePersona(data)
+  if (!parsed.success) return false
+  const stored: StoredPersona = { ...parsed.data, id, updatedAt }
+  await putSilent('personas', stored)
+  return true
+}
+
+/**
+ * Apply a remote persona deletion. Deliberately a raw delete — never
+ * `deletePersona`, whose "≥1 persona" invariant and chat reassignment would
+ * fork history. `ensureDefaultPersona` re-seeds Sam if the last one is removed.
+ */
+export const applyPersonaTombstone = async (id: string): Promise<void> => {
+  await deleteByKeySilent('personas', id)
 }
 
 const pickPersonaJson = (): Promise<unknown> => {

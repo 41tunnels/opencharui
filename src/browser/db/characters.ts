@@ -1,12 +1,22 @@
-import { get, getAll, put, deleteByKey, getAllByIndex, deleteMessagesForChat } from './index'
+import {
+  get,
+  getAll,
+  put,
+  putSilent,
+  deleteByKey,
+  deleteByKeySilent,
+  getAllByIndex,
+  deleteMessagesForChat
+} from './index'
 import {
   normalizeCharacterImportData,
   parseCharacterImportFile
 } from '@shared/character-card-import'
 import { parseCharacter, safeParseCharacter } from '@shared/character-schema'
+import { recordTombstone } from './tombstones'
 import type { Character, CharacterSummary } from '@shared/types'
 
-type StoredCharacter = Character & { updatedAt: number }
+export type StoredCharacter = Character & { updatedAt: number }
 
 const toSummary = (stored: StoredCharacter): CharacterSummary => {
   return {
@@ -44,12 +54,42 @@ export const saveCharacter = async (character: Character): Promise<Character> =>
 }
 
 export const deleteCharacter = async (id: string): Promise<void> => {
+  const now = Date.now()
   const chats = await getAllByIndex<{ id: string }>('chats', 'byCharacterId', id)
   for (const chat of chats) {
+    // Cascade-deleted chats need their own tombstones so other devices drop them too.
+    await recordTombstone('chats', chat.id, now)
     await deleteMessagesForChat(chat.id)
     await deleteByKey('chats', chat.id)
   }
+  await recordTombstone('characters', id, now)
   await deleteByKey('characters', id)
+}
+
+/**
+ * Write a character received from sync, preserving its id and remote
+ * `updatedAt`. Returns false if the payload fails validation (caller skips it).
+ */
+export const applySyncedCharacter = async (
+  id: string,
+  data: unknown,
+  updatedAt: number
+): Promise<boolean> => {
+  const parsed = safeParseCharacter(data)
+  if (!parsed.success) return false
+  const stored: StoredCharacter = { ...parsed.data, id, updatedAt }
+  await putSilent('characters', stored)
+  return true
+}
+
+/** Apply a remote character deletion: drop the record and its chats/messages. */
+export const applyCharacterTombstone = async (id: string): Promise<void> => {
+  const chats = await getAllByIndex<{ id: string }>('chats', 'byCharacterId', id)
+  for (const chat of chats) {
+    await deleteMessagesForChat(chat.id, { silent: true })
+    await deleteByKeySilent('chats', chat.id)
+  }
+  await deleteByKeySilent('characters', id)
 }
 
 const pickCharacterFile = (): Promise<{ raw: unknown; avatar?: string } | null> => {

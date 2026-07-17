@@ -106,6 +106,10 @@ export interface ModelInfo {
 
 export interface LLMStatus {
   ollamaAvailable: boolean
+  /** True when connected via an amallo instance (API key set) rather than plain Ollama. */
+  usingAmallo: boolean
+  /** True when the server answered 401 — the URL is reachable but the API key is missing/wrong */
+  unauthorized: boolean
 }
 
 export interface ModelPullProgress {
@@ -115,12 +119,24 @@ export interface ModelPullProgress {
   percent?: number
 }
 
+export type SyncState = 'disabled' | 'unsupported' | 'idle' | 'syncing' | 'error'
+
+export interface SyncStatus {
+  state: SyncState
+  /** Epoch ms of the last successful sync, or null if never. */
+  lastSyncedAt: number | null
+  /** Human-readable error when state is 'error'. */
+  error?: string
+}
+
 export type ModelNotes = Record<string, string>
 
 export interface AppSettings {
   systemPrompt: string
   /** When empty, dev uses the Vite proxy at /ollama; production uses http://127.0.0.1:11434 */
   ollamaUrl: string
+  /** Bearer token sent as `Authorization: Bearer <key>` (e.g. an amallo API key). Empty = no auth header. */
+  ollamaApiKey: string
 }
 
 export type AppTheme = 'light' | 'dark'

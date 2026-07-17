@@ -355,7 +355,10 @@ const openSettings = () => {
           </button>
           <span class="text-sm ui-text-muted">
             Status:
-            <span class="text-amber-600 dark:text-amber-400">Waiting for Ollama</span>
+            <span v-if="store.llmStatus.unauthorized" class="text-amber-600 dark:text-amber-400">
+              Unauthorized — check the API key in Settings
+            </span>
+            <span v-else class="text-amber-600 dark:text-amber-400">Waiting for Ollama</span>
           </span>
         </div>
       </template>
