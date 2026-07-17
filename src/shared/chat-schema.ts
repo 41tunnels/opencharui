@@ -16,7 +16,9 @@ const chatGenerationSettingsSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
   topP: z.number().min(0).max(1).optional(),
   maxTokens: z.number().int().positive().optional(),
-  contextWindowSize: z.number().int().min(4).max(100).optional()
+  contextWindowSize: z.number().int().min(4).max(100).optional(),
+  /** Minutes when > 0; 0 = unload; -1 = keep forever */
+  keepAliveMinutes: z.number().int().min(-1).optional()
 })
 
 export const chatSaveSchema = z

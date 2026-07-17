@@ -63,6 +63,11 @@ export interface Chat {
   maxTokens?: number
   /** Number of user/assistant message pairs sent as history */
   contextWindowSize?: number
+  /**
+   * How long Ollama keeps the model loaded after a reply (maps to keep_alive).
+   * Minutes when positive; 0 unloads immediately; -1 keeps loaded indefinitely.
+   */
+  keepAliveMinutes?: number
 }
 
 export interface ChatSettingsInput {
@@ -72,6 +77,7 @@ export interface ChatSettingsInput {
   topP?: number
   maxTokens?: number
   contextWindowSize?: number
+  keepAliveMinutes?: number
 }
 
 export interface ChatSummary extends Chat {

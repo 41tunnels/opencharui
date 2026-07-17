@@ -16,12 +16,21 @@ export const resolveChatGenerationParams = (
   temperature?: number
   topP?: number
   maxTokens?: number
+  keepAliveMinutes?: number
 } => {
   return {
     temperature: chat.temperature ?? character.defaultParams?.temperature,
     topP: chat.topP ?? character.defaultParams?.topP,
-    maxTokens: chat.maxTokens ?? character.defaultParams?.maxTokens
+    maxTokens: chat.maxTokens ?? character.defaultParams?.maxTokens,
+    keepAliveMinutes: chat.keepAliveMinutes
   }
+}
+
+/** Convert chat keep-alive minutes to Ollama's keep_alive value. */
+export const toOllamaKeepAlive = (minutes?: number): string | number | undefined => {
+  if (minutes === undefined) return undefined
+  if (minutes === 0 || minutes === -1) return minutes
+  return `${minutes}m`
 }
 
 export const resolveChatContextWindowSize = (chat: Chat): number => {

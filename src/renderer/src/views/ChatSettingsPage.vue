@@ -22,6 +22,7 @@ const temperature = ref('')
 const topP = ref('')
 const maxTokens = ref('')
 const contextWindowSize = ref(20)
+const keepAliveMinutes = ref('')
 
 const chatId = computed(() => route.params.id as string)
 const chat = computed(() =>
@@ -52,6 +53,8 @@ const loadChatSettings = async () => {
     topP.value = current.topP !== undefined ? String(current.topP) : ''
     maxTokens.value = current.maxTokens !== undefined ? String(current.maxTokens) : ''
     contextWindowSize.value = resolveChatContextWindowSize(current)
+    keepAliveMinutes.value =
+      current.keepAliveMinutes !== undefined ? String(current.keepAliveMinutes) : ''
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Failed to load chat settings'
   } finally {
@@ -82,13 +85,22 @@ const save = async () => {
   saved.value = false
 
   try {
+    const keepAlive = parseOptionalNumber(keepAliveMinutes.value)
+    if (
+      keepAlive !== undefined &&
+      (!Number.isInteger(keepAlive) || keepAlive < -1)
+    ) {
+      throw new Error('Keep model loaded must be an integer ≥ -1')
+    }
+
     const updated = await window.api.chats.saveSettings(chatId.value, {
       ...(store.personas.length > 1 ? { personaId: personaId.value } : {}),
       systemPrompt: systemPrompt.value,
       temperature: parseOptionalNumber(temperature.value),
       topP: parseOptionalNumber(topP.value),
       maxTokens: parseOptionalNumber(maxTokens.value),
-      contextWindowSize: contextWindowSize.value
+      contextWindowSize: contextWindowSize.value,
+      keepAliveMinutes: keepAlive
     })
 
     if (store.activeChat?.id === updated.id) {
@@ -169,6 +181,20 @@ const save = async () => {
           />
           <p class="mt-1 text-xs ui-text-subtle">
             How many user/assistant message pairs are included when generating replies.
+          </p>
+        </label>
+
+        <label class="block">
+          <span class="mb-1 block text-sm ui-text-muted">Keep model loaded (minutes)</span>
+          <NumberInput
+            v-model="keepAliveMinutes"
+            :min="-1"
+            placeholder="Default"
+          />
+          <p class="mt-1 text-xs ui-text-subtle">
+            How long Ollama keeps the model in memory after a reply. Empty uses Ollama&apos;s
+            default (usually 5 minutes). Use 0 to unload immediately, or -1 to keep it loaded
+            indefinitely.
           </p>
         </label>
 

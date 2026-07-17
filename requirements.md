@@ -85,8 +85,9 @@ Each chat has a **Settings** page (from the chat header) with:
 - Chat-specific **system prompt** (appended after the global Settings prompt when set)
 - **Persona** selection when more than one persona exists
 - **Context window** (message pairs) for how much chat history is sent to the model
-- **Temperature**, **top P**, and **max tokens** for Ollama generation
+- **Temperature**, **top P**, **max tokens**, and **keep model loaded** (Ollama `keep_alive`) for generation
 - Empty generation fields inherit from the linked character's defaults; empty chat system prompt uses only the global prompt
+- Empty keep-alive uses Ollama's default; `0` unloads after the reply, `-1` keeps the model loaded indefinitely
 - Per-chat settings are stored on the chat record and included in chat JSON import/export
 - Chat settings and character defaults explain temperature, top P, and max tokens with example values.
 

@@ -126,7 +126,8 @@ export const applySyncedChat = async (save: ChatSaveInput, updatedAt: number): P
     ...(save.temperature !== undefined ? { temperature: save.temperature } : {}),
     ...(save.topP !== undefined ? { topP: save.topP } : {}),
     ...(save.maxTokens !== undefined ? { maxTokens: save.maxTokens } : {}),
-    ...(save.contextWindowSize !== undefined ? { contextWindowSize: save.contextWindowSize } : {})
+    ...(save.contextWindowSize !== undefined ? { contextWindowSize: save.contextWindowSize } : {}),
+    ...(save.keepAliveMinutes !== undefined ? { keepAliveMinutes: save.keepAliveMinutes } : {})
   }
   await putSilent('chats', chat)
 }
@@ -158,6 +159,7 @@ export const saveChatSettings = async (
     topP?: number
     maxTokens?: number
     contextWindowSize?: number
+    keepAliveMinutes?: number
   }
 ): Promise<ChatWithMessages> => {
   const chat = await get<Chat>('chats', id)
@@ -200,6 +202,14 @@ export const saveChatSettings = async (
       updated.contextWindowSize = settings.contextWindowSize
     } else {
       delete updated.contextWindowSize
+    }
+  }
+
+  if ('keepAliveMinutes' in settings) {
+    if (settings.keepAliveMinutes !== undefined) {
+      updated.keepAliveMinutes = settings.keepAliveMinutes
+    } else {
+      delete updated.keepAliveMinutes
     }
   }
 
@@ -357,6 +367,7 @@ export const saveChat = async (data: {
   topP?: number
   maxTokens?: number
   contextWindowSize?: number
+  keepAliveMinutes?: number
   messages: Message[]
 }): Promise<ChatWithMessages> => {
   const existing = await get<Chat>('chats', data.id)
@@ -388,7 +399,8 @@ export const saveChat = async (data: {
     ...(data.temperature !== undefined ? { temperature: data.temperature } : {}),
     ...(data.topP !== undefined ? { topP: data.topP } : {}),
     ...(data.maxTokens !== undefined ? { maxTokens: data.maxTokens } : {}),
-    ...(data.contextWindowSize !== undefined ? { contextWindowSize: data.contextWindowSize } : {})
+    ...(data.contextWindowSize !== undefined ? { contextWindowSize: data.contextWindowSize } : {}),
+    ...(data.keepAliveMinutes !== undefined ? { keepAliveMinutes: data.keepAliveMinutes } : {})
   }
   await put('chats', chat)
 
@@ -410,6 +422,7 @@ export const importChat = async (data: {
   topP?: number
   maxTokens?: number
   contextWindowSize?: number
+  keepAliveMinutes?: number
   messages: Message[]
 }): Promise<ChatWithMessages> => {
   await ensureCharacterExists(data.characterId)
@@ -432,7 +445,8 @@ export const importChat = async (data: {
     ...(data.temperature !== undefined ? { temperature: data.temperature } : {}),
     ...(data.topP !== undefined ? { topP: data.topP } : {}),
     ...(data.maxTokens !== undefined ? { maxTokens: data.maxTokens } : {}),
-    ...(data.contextWindowSize !== undefined ? { contextWindowSize: data.contextWindowSize } : {})
+    ...(data.contextWindowSize !== undefined ? { contextWindowSize: data.contextWindowSize } : {}),
+    ...(data.keepAliveMinutes !== undefined ? { keepAliveMinutes: data.keepAliveMinutes } : {})
   }
 
   await put('chats', chat)

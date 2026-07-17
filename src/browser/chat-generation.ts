@@ -16,7 +16,8 @@ import { buildMessages, buildOpeningMessages, deriveChatTitle, renderCharacterTe
 import {
   resolveChatGenerationParams,
   resolveChatContextWindowSize,
-  resolveChatSystemPrompt
+  resolveChatSystemPrompt,
+  toOllamaKeepAlive
 } from '@shared/chat-settings'
 import type { Message } from '@shared/types'
 
@@ -84,7 +85,12 @@ const resolvePromptContext = async (chatId: string) => {
 const streamAssistantReply = async (
   chatId: string,
   messages: ChatMessage[],
-  generationParams: { temperature?: number; topP?: number; maxTokens?: number },
+  generationParams: {
+    temperature?: number
+    topP?: number
+    maxTokens?: number
+    keepAliveMinutes?: number
+  },
   callbacks: StreamCallbacks
 ): Promise<string> => {
   const controller = new AbortController()
@@ -101,7 +107,8 @@ const streamAssistantReply = async (
         messages,
         temperature: generationParams.temperature,
         topP: generationParams.topP,
-        maxTokens: generationParams.maxTokens
+        maxTokens: generationParams.maxTokens,
+        keepAlive: toOllamaKeepAlive(generationParams.keepAliveMinutes)
       },
       (delta) => {
         if (controller.signal.aborted) {

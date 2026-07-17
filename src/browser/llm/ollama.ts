@@ -10,6 +10,8 @@ export interface ChatParams {
   temperature?: number
   topP?: number
   maxTokens?: number
+  /** Ollama keep_alive: duration string (e.g. "5m"), seconds, 0, or -1 */
+  keepAlive?: string | number
 }
 
 export interface OllamaConnection {
@@ -290,6 +292,7 @@ export const chat = async (
     model: params.modelId,
     messages: params.messages,
     stream: true,
+    ...(params.keepAlive !== undefined ? { keep_alive: params.keepAlive } : {}),
     options: {
       temperature: params.temperature,
       top_p: params.topP,
