@@ -187,8 +187,12 @@ const importCharacterFromFile = async () => {
 
 <template>
   <aside
-    class="ui-surface flex shrink-0 flex-col overflow-hidden border-r transition-[width] duration-200 ease-in-out"
-    :class="store.uiState.sidebarCollapsed ? 'w-0 border-r-0' : 'w-64'"
+    class="ui-surface fixed bottom-0 left-0 top-12 z-40 flex w-64 shrink-0 flex-col overflow-hidden border-r transition-[width,transform] duration-200 ease-in-out md:relative md:inset-auto md:z-auto"
+    :class="
+      store.uiState.sidebarCollapsed
+        ? '-translate-x-full border-r-0 md:translate-x-0 md:w-0'
+        : 'translate-x-0 md:w-64'
+    "
   >
     <SidebarSection
       title="Characters"
@@ -213,7 +217,7 @@ const importCharacterFromFile = async () => {
           <span class="min-w-0 flex-1 truncate">{{ character.name }}</span>
         </button>
         <div
-          class="mr-1 flex w-[5.5rem] shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+          class="ui-hover-reveal mr-1 flex w-[5.5rem] shrink-0 items-center justify-end gap-0.5 transition-opacity duration-150"
         >
           <button
             type="button"
@@ -261,7 +265,7 @@ const importCharacterFromFile = async () => {
           <span class="min-w-0 flex-1 truncate">{{ persona.name }}</span>
         </button>
         <div
-          class="mr-1 flex w-[5.5rem] shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+          class="ui-hover-reveal mr-1 flex w-[5.5rem] shrink-0 items-center justify-end gap-0.5 transition-opacity duration-150"
         >
           <button
             type="button"
@@ -314,7 +318,7 @@ const importCharacterFromFile = async () => {
             </time>
           </button>
           <div
-            class="mr-1 flex w-[3.25rem] shrink-0 items-center justify-end opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+            class="ui-hover-reveal mr-1 flex w-[3.25rem] shrink-0 items-center justify-end transition-opacity duration-150"
           >
             <button
               type="button"

@@ -32,18 +32,18 @@ const selectModel = async (modelId: string) => {
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative min-w-0">
     <button
-      class="ui-btn-outline flex items-center gap-2 px-3 py-1.5 text-sm"
+      class="ui-btn-outline flex min-w-0 items-center gap-1.5 px-1.5 py-1.5 text-sm md:gap-2 md:px-3"
       @click="open = !open"
     >
-      <span class="max-w-[180px] truncate">{{ label }}</span>
-      <span class="ui-text-subtle">▼</span>
+      <span class="max-w-[5.5rem] truncate md:max-w-[180px]">{{ label }}</span>
+      <span class="ui-text-subtle shrink-0">▼</span>
     </button>
 
     <div
       v-if="open"
-      class="absolute left-0 top-full z-50 mt-1 max-h-80 w-72 overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-800 dark:bg-neutral-900"
+      class="absolute left-0 top-full z-50 mt-1 max-h-80 w-[min(18rem,calc(100vw-2rem))] overflow-y-auto rounded-lg border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-800 dark:bg-neutral-900"
     >
       <p class="px-3 py-1 text-xs font-semibold uppercase ui-text-subtle">Ollama models</p>
       <button

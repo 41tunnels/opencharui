@@ -149,7 +149,7 @@ const exportPersona = async () => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
     <div class="mx-auto w-full max-w-2xl space-y-6">
       <div class="flex items-center justify-between gap-3">
         <div>

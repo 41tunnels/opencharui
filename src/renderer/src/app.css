@@ -76,6 +76,21 @@ html.dark body {
     @apply bg-neutral-100 dark:bg-neutral-900;
   }
 
+  .ui-hover-reveal {
+    @apply opacity-100 pointer-events-auto;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .ui-hover-reveal {
+      @apply pointer-events-none opacity-0;
+    }
+
+    .group:hover .ui-hover-reveal,
+    .group:focus-within .ui-hover-reveal {
+      @apply pointer-events-auto opacity-100;
+    }
+  }
+
   .thought-text {
     @apply italic;
   }

@@ -5,7 +5,7 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+  <div class="flex flex-1 flex-col items-center justify-center gap-4 p-4 text-center md:p-8">
     <h1 class="text-2xl font-semibold">OpenCharUI</h1>
     <p class="ui-text-muted max-w-md">
       Select a character from the sidebar to start a chat, or create a new character to begin.

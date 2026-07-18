@@ -428,7 +428,7 @@ const requestDelete = (message: Message) => {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div ref="scrollRef" class="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+    <div ref="scrollRef" class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6">
       <div v-if="messages.length === 0 && !streamingText" class="flex h-full items-center justify-center">
         <p class="ui-text-subtle">
           Start a conversation{{ characterName ? ` with ${characterName}` : '' }}
@@ -497,7 +497,7 @@ const requestDelete = (message: Message) => {
               </div>
               <div
                 v-else-if="showMessageActions(message)"
-                class="flex flex-wrap items-center gap-2 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
+                class="ui-hover-reveal flex flex-wrap items-center gap-2 transition-opacity duration-150"
                 :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
               >
                 <button
@@ -575,25 +575,25 @@ const requestDelete = (message: Message) => {
 
     <div
       v-if="error"
-      class="border-t border-red-300 bg-red-50 px-6 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+      class="border-t border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 md:px-6 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
     >
       {{ error }}
     </div>
 
-    <div class="shrink-0 border-t border-neutral-200 px-6 py-4 dark:border-neutral-800">
-      <div class="mx-auto flex max-w-3xl items-stretch gap-2">
+    <div class="shrink-0 border-t border-neutral-200 px-3 py-3 md:px-6 md:py-4 dark:border-neutral-800">
+      <div class="mx-auto flex max-w-3xl flex-col items-stretch gap-2 md:flex-row">
         <div class="flex min-h-0 min-w-0 flex-1 self-stretch">
           <textarea
             v-model="input"
-            class="ui-input h-full max-h-48 w-full resize-none overflow-y-auto rounded-xl px-4 py-3 text-sm placeholder-neutral-400 dark:placeholder-neutral-500"
+            class="ui-input h-full max-h-48 min-h-[44px] w-full resize-none overflow-y-auto rounded-xl px-4 py-3 text-sm placeholder-neutral-400 dark:placeholder-neutral-500"
             :placeholder="characterName ? `Message ${characterName}...` : 'Type a message...'"
             @keydown="onKeydown"
           />
         </div>
-        <div class="flex shrink-0 flex-col justify-between gap-1.5 self-stretch">
+        <div class="flex shrink-0 flex-row items-center justify-between gap-2 md:flex-col md:items-end md:justify-between md:gap-1.5 md:self-stretch">
           <div
             v-if="tokenSpeedLabel || contextUsageLabel"
-            class="flex flex-col items-end gap-0.5 text-xs tabular-nums"
+            class="flex flex-row items-center gap-2 text-xs tabular-nums md:flex-col md:items-end md:gap-0.5"
           >
             <p
               v-if="tokenSpeedLabel"
@@ -610,7 +610,7 @@ const requestDelete = (message: Message) => {
               {{ contextUsageLabel }}
             </p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="ml-auto flex items-center gap-2 md:ml-0">
             <button
               v-if="isGenerating"
               type="button"

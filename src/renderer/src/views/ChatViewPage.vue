@@ -358,8 +358,8 @@ const onTitleBlur = () => {
 
 <template>
   <div v-if="store.activeChat" class="flex min-h-0 flex-1 flex-col">
-    <div class="ui-surface flex shrink-0 items-center justify-between border-b px-6 py-3">
-      <div class="min-w-0">
+    <div class="ui-surface flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-3 md:px-6">
+      <div class="min-w-0 flex-1">
         <div class="group flex min-w-0 items-center gap-2">
           <input
             v-if="editingTitle"
@@ -374,7 +374,7 @@ const onTitleBlur = () => {
             <h2 class="min-w-0 truncate text-sm font-medium">{{ store.activeChat.title }}</h2>
             <button
               type="button"
-              class="shrink-0 rounded-md px-1.5 py-0.5 text-xs ui-text-subtle opacity-0 transition-opacity hover:bg-neutral-200 hover:text-neutral-800 group-hover:opacity-100 group-focus-within:opacity-100 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              class="ui-hover-reveal shrink-0 rounded-md px-1.5 py-0.5 text-xs ui-text-subtle transition-opacity hover:bg-neutral-200 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
               title="Rename chat"
               @click="startRename"
             >
@@ -388,7 +388,7 @@ const onTitleBlur = () => {
           <span v-if="store.activeChat.character">with {{ store.activeChat.character.name }}</span>
         </p>
       </div>
-      <div class="flex shrink-0 items-center gap-3">
+      <div class="flex shrink-0 items-center gap-2 md:gap-3">
         <button
           type="button"
           class="ui-btn-ghost shrink-0 text-sm"
@@ -407,7 +407,7 @@ const onTitleBlur = () => {
       </div>
     </div>
 
-    <div v-if="rawMode" class="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+    <div v-if="rawMode" class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
       <div class="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4">
         <p class="text-sm ui-text-muted">
           Edit the full chat record including messages. Character and persona details are not
@@ -416,7 +416,7 @@ const onTitleBlur = () => {
         <textarea
           v-model="rawJson"
           rows="24"
-          class="ui-input min-h-[420px] w-full flex-1 rounded-xl p-4 font-mono text-sm"
+          class="ui-input min-h-[50vh] w-full flex-1 rounded-xl p-4 font-mono text-sm md:min-h-[420px]"
         />
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" class="ui-btn-outline px-4 py-2 text-sm" @click="applyRawJson">

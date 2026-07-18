@@ -136,7 +136,7 @@ const exportChar = async () => {
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
     <div class="mx-auto w-full max-w-2xl">
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-xl font-semibold">{{ isNew ? 'New Character' : 'Edit Character' }}</h2>
@@ -201,7 +201,7 @@ const exportChar = async () => {
             class="ui-input w-full px-3 py-2 text-sm"
           />
         </label>
-        <div class="grid grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label class="block">
             <span class="mb-1 block text-sm ui-text-muted">Temperature</span>
             <NumberInput

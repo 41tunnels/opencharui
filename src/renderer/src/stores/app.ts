@@ -79,10 +79,14 @@ export const useAppStore = defineStore('app', () => {
     applyTheme(theme)
   }
 
-  const toggleSidebarCollapsed = () => {
-    const sidebarCollapsed = !uiState.value.sidebarCollapsed
+  const setSidebarCollapsed = (sidebarCollapsed: boolean) => {
+    if (uiState.value.sidebarCollapsed === sidebarCollapsed) return
     uiState.value = { ...uiState.value, sidebarCollapsed }
     void persistUiState({ sidebarCollapsed })
+  }
+
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed(!uiState.value.sidebarCollapsed)
   }
 
   const toggleSidebarSection = (section: 'characters' | 'personas' | 'chats') => {
@@ -254,6 +258,7 @@ export const useAppStore = defineStore('app', () => {
     refreshLlm,
     loadUiState,
     persistUiState,
+    setSidebarCollapsed,
     toggleSidebarCollapsed,
     toggleSidebarSection,
     toggleTheme,

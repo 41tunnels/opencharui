@@ -8,6 +8,10 @@ const router = useRouter()
 const store = useAppStore()
 
 const providerLabel = computed(() => (store.llmStatus.usingAmallo ? 'Amallo' : 'Ollama'))
+const connectionTitle = computed(
+  () =>
+    `${providerLabel.value} ${store.llmStatus.ollamaAvailable ? 'connected' : 'not connected'}`
+)
 
 const GITHUB_REPO_URL = 'https://github.com/OpenCharUI/web'
 
@@ -22,7 +26,7 @@ const newChat = async () => {
 </script>
 
 <template>
-  <header class="ui-surface flex h-12 shrink-0 items-center gap-3 border-b px-4">
+  <header class="ui-surface flex h-12 shrink-0 items-center gap-1.5 border-b px-2 md:gap-3 md:px-4">
     <button
       type="button"
       class="ui-btn-ghost p-1.5"
@@ -72,19 +76,19 @@ const newChat = async () => {
         />
       </svg>
     </button>
-    <div class="flex items-center gap-2 text-sm">
+    <div class="flex items-center gap-2 text-sm" :title="connectionTitle">
       <span
         class="inline-block h-2 w-2 rounded-full"
         :class="store.llmStatus.ollamaAvailable ? 'bg-green-500' : 'bg-red-500'"
       />
-      <span class="ui-text-muted">
+      <span class="ui-text-muted hidden md:inline">
         {{ providerLabel }} {{ store.llmStatus.ollamaAvailable ? 'connected' : 'not connected' }}
       </span>
     </div>
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex items-center gap-1 md:gap-2">
       <button
         type="button"
-        class="ui-btn-ghost px-3 py-1.5 text-sm"
+        class="ui-btn-ghost p-1.5 md:px-3 md:py-1.5"
         :title="store.isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode'"
         :aria-label="store.isDarkTheme ? 'Switch to light mode' : 'Switch to dark mode'"
         @click="store.toggleTheme()"
@@ -143,12 +147,49 @@ const newChat = async () => {
         </svg>
       </a>
       <button
-        class="ui-btn-ghost px-3 py-1.5 text-sm"
+        type="button"
+        class="ui-btn-ghost p-1.5 md:px-3 md:py-1.5 md:text-sm"
+        title="Settings"
+        aria-label="Settings"
         @click="router.push({ name: 'settings' })"
       >
-        Settings
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          class="h-5 w-5 md:hidden"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+          />
+        </svg>
+        <span class="hidden md:inline">Settings</span>
       </button>
-      <button class="ui-btn-primary px-3 py-1.5 text-sm" @click="newChat">New Chat</button>
+      <button
+        type="button"
+        class="ui-btn-primary p-1.5 text-sm md:px-3 md:py-1.5"
+        title="New Chat"
+        aria-label="New Chat"
+        @click="newChat"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          class="h-5 w-5 md:hidden"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" d="M12 5v14M5 12h14" />
+        </svg>
+        <span class="hidden md:inline">New Chat</span>
+      </button>
     </div>
   </header>
 </template>
