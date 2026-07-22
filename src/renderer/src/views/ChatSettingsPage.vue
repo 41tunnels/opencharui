@@ -13,7 +13,6 @@ const store = useAppStore()
 const loading = ref(true)
 const loadError = ref<string | null>(null)
 const saveError = ref<string | null>(null)
-const saved = ref(false)
 const saving = ref(false)
 
 const personaId = ref('')
@@ -82,7 +81,6 @@ const save = async () => {
   if (!chatId.value) return
   saving.value = true
   saveError.value = null
-  saved.value = false
 
   try {
     const keepAlive = parseOptionalNumber(keepAliveMinutes.value)
@@ -107,8 +105,7 @@ const save = async () => {
       store.activeChat = updated
     }
     await store.refreshChats()
-    saved.value = true
-    setTimeout(() => (saved.value = false), 2000)
+    await router.push({ name: 'chat', params: { id: chatId.value } })
   } catch (err) {
     saveError.value = err instanceof Error ? err.message : 'Failed to save settings'
   } finally {
@@ -177,7 +174,6 @@ const save = async () => {
           <NumberInput
             v-model.number="contextWindowSize"
             :min="4"
-            :max="100"
           />
           <p class="mt-1 text-xs ui-text-subtle">
             How many user/assistant message pairs are included when generating replies.
@@ -263,7 +259,6 @@ const save = async () => {
           >
             Save settings
           </button>
-          <span v-if="saved" class="text-sm text-green-600 dark:text-green-400">Saved</span>
           <span v-if="saveError" class="text-sm text-red-600 dark:text-red-400">{{ saveError }}</span>
         </div>
       </template>
