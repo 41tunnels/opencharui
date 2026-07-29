@@ -45,9 +45,10 @@ export const useAppStore = defineStore('app', () => {
     chats.value = await window.api.chats.list()
   }
 
-  const refreshLlm = async () => {
-    llmStatus.value = await window.api.llm.getStatus()
-    models.value = await window.api.llm.listModels()
+  const refreshLlm = async (options: { force?: boolean } = { force: true }) => {
+    const { status, models: nextModels } = await window.api.llm.refresh(options)
+    llmStatus.value = status
+    models.value = nextModels
     if (!selectedModelId.value && models.value.length > 0) {
       selectedModelId.value = models.value[0]?.id ?? null
     }
@@ -106,15 +107,25 @@ export const useAppStore = defineStore('app', () => {
 
   const isDarkTheme = computed(() => uiState.value.theme === 'dark')
 
-  const refreshData = async () => {
-    await Promise.all([refreshCharacters(), refreshPersonas(), refreshChats(), refreshLlm()])
+  const refreshLocalData = async () => {
+    await Promise.all([refreshCharacters(), refreshPersonas(), refreshChats()])
     if (activeChat.value) {
       await loadChat(activeChat.value.id)
     }
   }
 
+  const refreshData = async (options: { llm?: boolean | 'ifStale' } = { llm: true }) => {
+    const tasks: Promise<unknown>[] = [refreshLocalData()]
+    if (options.llm === true) {
+      tasks.push(refreshLlm({ force: true }))
+    } else if (options.llm === 'ifStale') {
+      tasks.push(refreshLlm({ force: false }))
+    }
+    await Promise.all(tasks)
+  }
+
   const refreshAll = async () => {
-    await Promise.all([refreshData(), loadUiState({ syncTheme: false })])
+    await Promise.all([refreshData({ llm: true }), loadUiState({ syncTheme: false })])
   }
 
   const loadChat = async (chatId: string) => {

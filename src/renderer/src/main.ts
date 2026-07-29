@@ -20,7 +20,7 @@ const bootstrap = async (): Promise<void> => {
   app.use(router)
 
   const store = useAppStore(pinia)
-  await store.refreshData()
+  await store.refreshData({ llm: true })
   await store.loadUiState({ syncTheme: true })
 
   onDataChanged(() => {
@@ -28,18 +28,19 @@ const bootstrap = async (): Promise<void> => {
       void Promise.all([store.refreshCharacters(), store.refreshChats()])
       return
     }
-    void store.refreshData()
+    // Other tab changed IndexedDB — refresh local lists, skip Ollama unless cache is stale.
+    void store.refreshData({ llm: 'ifStale' })
   })
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      void store.refreshData()
+      void store.refreshData({ llm: 'ifStale' })
     }
   })
 
   // Refresh this tab's UI when a sync run pulled remote changes into IndexedDB.
   window.api.sync.onStatusChanged((_status, appliedRemote) => {
-    if (appliedRemote && !store.isGenerating) void store.refreshData()
+    if (appliedRemote && !store.isGenerating) void store.refreshData({ llm: false })
   })
   startDeviceSync()
 

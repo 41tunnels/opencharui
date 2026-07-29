@@ -21,9 +21,32 @@ export interface OllamaConnection {
 
 let cachedConnection: OllamaConnection | null = null
 
+export type OllamaProbeResult = 'ok' | 'unauthorized' | 'unreachable'
+
+const TAGS_TTL_MS = 45_000
+
+type TagsResponse = {
+  models: Array<{ name: string; size: number }>
+}
+
+interface TagsSnapshot {
+  fetchedAt: number
+  probe: OllamaProbeResult
+  models: ModelInfo[]
+}
+
+let tagsSnapshot: TagsSnapshot | null = null
+let tagsInFlight: Promise<TagsSnapshot> | null = null
+
+export const clearTagsCache = (): void => {
+  tagsSnapshot = null
+}
+
 export const invalidateOllamaBaseUrl = (): void => {
   cachedConnection = null
   clearModelContextCache()
+  clearTagsCache()
+  tagsInFlight = null
 }
 
 const normalizeOllamaUrl = (url: string): string => url.replace(/\/+$/, '')
@@ -68,8 +91,6 @@ export const buildHeaders = (
   ...(apiKey && isNgrokHost(baseUrl) ? { 'ngrok-skip-browser-warning': 'true' } : {})
 })
 
-export type OllamaProbeResult = 'ok' | 'unauthorized' | 'unreachable'
-
 /**
  * True when the configured connection targets an amallo instance rather than a
  * plain Ollama — inferred from an API key being set (amallo requires a bearer
@@ -80,22 +101,69 @@ export const isUsingAmallo = async (): Promise<boolean> => {
   return apiKey.length > 0
 }
 
-export const probeOllama = async (): Promise<OllamaProbeResult> => {
+const mapTagsModels = (data: TagsResponse): ModelInfo[] =>
+  data.models.map((m) => ({
+    id: m.name,
+    name: m.name,
+    source: 'ollama' as const,
+    sizeBytes: m.size
+  }))
+
+/** Single /api/tags fetch shared by probe + listModels, with TTL and in-flight dedupe. */
+export const fetchTags = async (options: { force?: boolean } = {}): Promise<TagsSnapshot> => {
+  const force = options.force ?? false
+  if (!force && tagsSnapshot && Date.now() - tagsSnapshot.fetchedAt < TAGS_TTL_MS) {
+    return tagsSnapshot
+  }
+  if (!force && tagsInFlight) return tagsInFlight
+
+  const request = (async (): Promise<TagsSnapshot> => {
+    try {
+      const { baseUrl, apiKey } = await resolveConnection()
+      const res = await fetch(`${baseUrl}/api/tags`, {
+        headers: buildHeaders({ baseUrl, apiKey }),
+        signal: AbortSignal.timeout(force ? 10_000 : 2000)
+      })
+
+      if (!res.ok) {
+        return {
+          fetchedAt: Date.now(),
+          probe: res.status === 401 ? 'unauthorized' : 'unreachable',
+          models: []
+        }
+      }
+
+      const data = (await res.json()) as TagsResponse
+      return {
+        fetchedAt: Date.now(),
+        probe: 'ok',
+        models: mapTagsModels(data)
+      }
+    } catch {
+      // Short TTL so soft refresh retries soon after a transient failure.
+      return {
+        fetchedAt: Date.now() - TAGS_TTL_MS + 5_000,
+        probe: 'unreachable',
+        models: []
+      }
+    }
+  })()
+
+  tagsInFlight = request
   try {
-    const { baseUrl, apiKey } = await resolveConnection()
-    const res = await fetch(`${baseUrl}/api/tags`, {
-      headers: buildHeaders({ baseUrl, apiKey }),
-      signal: AbortSignal.timeout(2000)
-    })
-    if (res.ok) return 'ok'
-    return res.status === 401 ? 'unauthorized' : 'unreachable'
-  } catch {
-    return 'unreachable'
+    const snapshot = await request
+    // Keep the newest snapshot if a forced fetch raced ahead of a soft one.
+    if (!tagsSnapshot || snapshot.fetchedAt >= tagsSnapshot.fetchedAt) {
+      tagsSnapshot = snapshot
+    }
+    return tagsSnapshot ?? snapshot
+  } finally {
+    if (tagsInFlight === request) tagsInFlight = null
   }
 }
 
-type TagsResponse = {
-  models: Array<{ name: string; size: number }>
+export const probeOllama = async (options: { force?: boolean } = {}): Promise<OllamaProbeResult> => {
+  return (await fetchTags(options)).probe
 }
 
 const DEFAULT_CONTEXT_TOKENS = 8192
@@ -153,17 +221,10 @@ export const getModelContextLength = async (modelId: string): Promise<number> =>
   }
 }
 
-export const listModels = async (): Promise<ModelInfo[]> => {
-  const { baseUrl, apiKey } = await resolveConnection()
-  const res = await fetch(`${baseUrl}/api/tags`, { headers: buildHeaders({ baseUrl, apiKey }) })
-  if (!res.ok) throw new Error('Failed to list Ollama models')
-  const data = (await res.json()) as TagsResponse
-  return data.models.map((m) => ({
-    id: m.name,
-    name: m.name,
-    source: 'ollama' as const,
-    sizeBytes: m.size
-  }))
+export const listModels = async (options: { force?: boolean } = {}): Promise<ModelInfo[]> => {
+  const snapshot = await fetchTags(options)
+  if (snapshot.probe !== 'ok') return []
+  return snapshot.models
 }
 
 export const getDefaultModelId = async (): Promise<string | null> => {
@@ -237,7 +298,10 @@ export const pullModel = async (
         const chunk = JSON.parse(line) as PullResponse
         if (chunk.error) throw new Error(chunk.error)
         onProgress(mapPullProgress(chunk))
-        if (chunk.status === 'success') return
+        if (chunk.status === 'success') {
+          clearTagsCache()
+          return
+        }
       }
     }
 
@@ -249,6 +313,7 @@ export const pullModel = async (
         throw new Error(`Model pull ended unexpectedly: ${chunk.status}`)
       }
     }
+    clearTagsCache()
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err
     throw err
@@ -269,6 +334,7 @@ export const deleteModel = async (name: string): Promise<void> => {
   }
 
   clearModelContextCache(name)
+  clearTagsCache()
 }
 
 let activeAbortController: AbortController | null = null

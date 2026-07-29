@@ -298,8 +298,20 @@ const runSync = async (): Promise<SyncStatus> => {
 
 // --- public triggers ----------------------------------------------------------
 
+const cancelScheduledSync = (): void => {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+}
+
 /** Run a sync now (manual button / settings change). Resolves with final status. */
-export const syncNow = (): Promise<SyncStatus> => runSync()
+export const syncNow = (): Promise<SyncStatus> => {
+  // Drop any pending debounced run so settings-save does not double-sync.
+  cancelScheduledSync()
+  rerunRequested = false
+  return runSync()
+}
 
 const scheduleSync = (): void => {
   if (applyingRemote) return // our own silent writes must not re-trigger us

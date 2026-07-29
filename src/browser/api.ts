@@ -146,26 +146,33 @@ export const createBrowserApi = (): OpenCharUiApi => {
     },
     llm: {
       getStatus: async () => {
-        const probe = await ollama.probeOllama()
+        const snapshot = await ollama.fetchTags()
         return {
-          ollamaAvailable: probe === 'ok',
+          ollamaAvailable: snapshot.probe === 'ok',
           usingAmallo: await ollama.isUsingAmallo(),
-          unauthorized: probe === 'unauthorized'
+          unauthorized: snapshot.probe === 'unauthorized'
         }
       },
-      listModels: async () => {
-        const probe = await ollama.probeOllama()
-        if (probe !== 'ok') return []
-        return ollama.listModels()
+      listModels: async () => ollama.listModels(),
+      refresh: async (options) => {
+        const snapshot = await ollama.fetchTags(options)
+        return {
+          status: {
+            ollamaAvailable: snapshot.probe === 'ok',
+            usingAmallo: await ollama.isUsingAmallo(),
+            unauthorized: snapshot.probe === 'unauthorized'
+          },
+          models: snapshot.probe === 'ok' ? snapshot.models : []
+        }
       },
       getModelContextLength: (modelId: string) => ollama.getModelContextLength(modelId),
       pullModel: async (name, onProgress, signal) => {
-        const probe = await ollama.probeOllama()
+        const probe = await ollama.probeOllama({ force: true })
         if (probe !== 'ok') throw new Error('Ollama is not connected')
         return ollama.pullModel(name, onProgress, signal)
       },
       deleteModel: async (name) => {
-        const probe = await ollama.probeOllama()
+        const probe = await ollama.probeOllama({ force: true })
         if (probe !== 'ok') throw new Error('Ollama is not connected')
         return ollama.deleteModel(name)
       }

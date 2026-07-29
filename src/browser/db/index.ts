@@ -2,6 +2,15 @@ import { notifyDataChanged } from '../sync'
 
 export type StoreName = 'characters' | 'personas' | 'chats' | 'messages' | 'settings' | 'tombstones'
 
+/** Stores whose writes affect Amallo sync payloads (and warrant cross-tab refresh). */
+const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
+  'characters',
+  'personas',
+  'chats',
+  'messages',
+  'tombstones'
+])
+
 const DB_NAME = 'opencharui'
 const DB_VERSION = 3
 
@@ -140,7 +149,9 @@ export const getAllByIndex = <T> (
 export const put = <T> (storeName: StoreName, value: T): Promise<void> => {
   return writeTx(storeName, (store) => store.put(value))
     .then(() => undefined)
-    .then(() => notifyDataChanged())
+    .then(() => {
+      if (SYNC_NOTIFY_STORES.has(storeName)) notifyDataChanged()
+    })
 }
 
 export const putSilent = <T> (storeName: StoreName, value: T): Promise<void> => {
@@ -150,7 +161,9 @@ export const putSilent = <T> (storeName: StoreName, value: T): Promise<void> => 
 export const deleteByKey = (storeName: StoreName, key: string): Promise<void> => {
   return writeTx(storeName, (store) => store.delete(key))
     .then(() => undefined)
-    .then(() => notifyDataChanged())
+    .then(() => {
+      if (SYNC_NOTIFY_STORES.has(storeName)) notifyDataChanged()
+    })
 }
 
 /** Like deleteByKey but does not notify — used by the sync apply path. */

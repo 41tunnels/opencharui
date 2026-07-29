@@ -48,6 +48,8 @@ export interface OpenCharUiApi {
   llm: {
     getStatus(): Promise<LLMStatus>
     listModels(): Promise<ModelInfo[]>
+    /** One /api/tags round-trip; returns status + models. */
+    refresh(options?: { force?: boolean }): Promise<{ status: LLMStatus; models: ModelInfo[] }>
     getModelContextLength(modelId: string): Promise<number>
     pullModel(
       name: string,

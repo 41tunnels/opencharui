@@ -41,13 +41,9 @@ const loadModels = async () => {
   loadError.value = null
 
   try {
-    await store.refreshLlm()
-    const [modelList, savedNotes] = await Promise.all([
-      window.api.llm.listModels(),
-      window.api.modelNotes.getAll()
-    ])
-    models.value = modelList
-    notes.value = savedNotes
+    await store.refreshLlm({ force: true })
+    models.value = store.models
+    notes.value = await window.api.modelNotes.getAll()
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Failed to load models'
   } finally {
