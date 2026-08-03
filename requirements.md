@@ -64,9 +64,9 @@ Deleting a chat must **immediately** abort any in-flight generation for that cha
 
 ## Models
 
-- **Ollama only** — the app connects to a local Ollama instance for inference and model listing.
+- **Ollama only** — the app connects to a local Ollama instance for inference and model listing, either directly or through a paired amallo relay connection.
 - User selects a model from the header; the first available Ollama model is used by default and applied to new chats.
-- Ollama must be running with CORS configured for the app origin (see README). Dev mode uses a Vite proxy.
+- Direct connections need Ollama running with CORS configured for the app origin (see README); dev mode uses a Vite proxy instead. Pairing with amallo over the relay needs no CORS setup at all — WebSocket connections aren't subject to it — which is the point of that path.
 - A **gear icon** next to the header model selector opens the **Models** page for managing installed models.
 
 ### Model manager

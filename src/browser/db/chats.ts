@@ -233,7 +233,8 @@ export const getMessage = async (messageId: string): Promise<Message | null> => 
 export const addMessage = async (
   chatId: string,
   role: Message['role'],
-  content: string
+  content: string,
+  options: { truncated?: boolean } = {}
 ): Promise<Message> => {
   const message: Message = {
     id: crypto.randomUUID(),
@@ -242,14 +243,19 @@ export const addMessage = async (
     content,
     variations: role === 'assistant' ? [content] : undefined,
     activeVariationIndex: 0,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    truncated: options.truncated ? true : undefined
   }
   await put('messages', message)
   await touchChat(chatId, message.createdAt)
   return message
 }
 
-export const addMessageVariation = async (messageId: string, content: string): Promise<Message> => {
+export const addMessageVariation = async (
+  messageId: string,
+  content: string,
+  options: { truncated?: boolean } = {}
+): Promise<Message> => {
   const existing = await getMessage(messageId)
   if (!existing) throw new Error('Message not found')
   if (existing.role !== 'assistant') throw new Error('Only assistant messages support variations')
@@ -260,7 +266,8 @@ export const addMessageVariation = async (messageId: string, content: string): P
     ...existing,
     variations,
     activeVariationIndex,
-    content
+    content,
+    truncated: options.truncated ? true : undefined
   }
   await put('messages', updated)
   await touchChat(existing.chatId)

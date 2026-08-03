@@ -34,6 +34,26 @@ export class ChatCancelledError extends Error {
   }
 }
 
+/**
+ * Thrown by `streamAssistantReply` instead of the raw transport error when
+ * generation stops mid-stream (a dropped relay/network connection) with at
+ * least one token already received — `content` is what streamed in before
+ * the failure. Callers persist it as a truncated message (so the partial
+ * reply isn't silently lost) and then re-throw `cause`, the original
+ * error, so the existing error UI still reports what actually went wrong.
+ */
+export class PartialGenerationError extends Error {
+  readonly content: string
+  constructor(content: string, options: { cause?: unknown }) {
+    super('Generation ended early with partial content', options)
+    this.name = 'PartialGenerationError'
+    this.content = content
+  }
+}
+
+export const isPartialGenerationError = (err: unknown): err is PartialGenerationError =>
+  err instanceof PartialGenerationError
+
 const activeGenerations = new Map<string, AbortController>()
 
 const assertChatExists = async (chatId: string): Promise<void> => {
@@ -101,25 +121,42 @@ const streamAssistantReply = async (
     await assertChatExists(chatId)
     const { modelId } = await resolveModel(chatId)
 
-    await ollama.chat(
-      {
-        modelId,
-        messages,
-        temperature: generationParams.temperature,
-        topP: generationParams.topP,
-        maxTokens: generationParams.maxTokens,
-        keepAlive: toOllamaKeepAlive(generationParams.keepAliveMinutes)
-      },
-      (delta) => {
-        if (controller.signal.aborted) {
-          ollama.abortChat()
-          return
-        }
-        assistantContent += delta
-        callbacks.onChunk(delta)
-      },
-      controller.signal
-    )
+    try {
+      await ollama.chat(
+        {
+          modelId,
+          messages,
+          temperature: generationParams.temperature,
+          topP: generationParams.topP,
+          maxTokens: generationParams.maxTokens,
+          keepAlive: toOllamaKeepAlive(generationParams.keepAliveMinutes)
+        },
+        (delta) => {
+          if (controller.signal.aborted) {
+            ollama.abortChat()
+            return
+          }
+          assistantContent += delta
+          callbacks.onChunk(delta)
+        },
+        controller.signal
+      )
+    } catch (err) {
+      // An intentional stop (controller.signal.aborted) surfaces from
+      // ollama.chat() as a raw AbortError, not a ChatCancelledError —
+      // normalize it here so isChatCancelledError recognizes it downstream
+      // instead of it being reported as a generation error.
+      if (controller.signal.aborted) {
+        throw new ChatCancelledError()
+      }
+      // A real transport failure (dropped relay/network connection) with
+      // at least one token already streamed: let the caller persist what
+      // arrived instead of discarding it, then still surface the real error.
+      if (assistantContent) {
+        throw new PartialGenerationError(assistantContent, { cause: err })
+      }
+      throw err
+    }
 
     if (controller.signal.aborted || !(await getChat(chatId))) {
       throw new ChatCancelledError()
@@ -184,10 +221,18 @@ export const sendUserMessage = async (
     contextWindowSize
   )
 
-  const assistantContent = await streamAssistantReply(chatId, messages, generationParams, callbacks)
-  await assertChatExists(chatId)
-  const assistantMessage = await addMessage(chatId, 'assistant', assistantContent)
-  return { messageId: assistantMessage.id }
+  try {
+    const assistantContent = await streamAssistantReply(chatId, messages, generationParams, callbacks)
+    await assertChatExists(chatId)
+    const assistantMessage = await addMessage(chatId, 'assistant', assistantContent)
+    return { messageId: assistantMessage.id }
+  } catch (err) {
+    if (isPartialGenerationError(err) && (await getChat(chatId))) {
+      await addMessage(chatId, 'assistant', err.content, { truncated: true })
+      throw err.cause
+    }
+    throw err
+  }
 }
 
 const buildRegenerationPrompt = async (
@@ -244,15 +289,23 @@ export const regenerateLastAssistantMessage = async (
   if (!lastAssistant) throw new Error('No assistant message to regenerate')
 
   const promptMessages = await buildRegenerationPrompt(chatId, lastAssistant.id)
-  const content = await streamAssistantReply(
-    chatId,
-    promptMessages.messages,
-    promptMessages.generationParams,
-    callbacks
-  )
-  await assertChatExists(chatId)
-  const updated = await addMessageVariation(lastAssistant.id, content)
-  return { messageId: updated.id, content: updated.content }
+  try {
+    const content = await streamAssistantReply(
+      chatId,
+      promptMessages.messages,
+      promptMessages.generationParams,
+      callbacks
+    )
+    await assertChatExists(chatId)
+    const updated = await addMessageVariation(lastAssistant.id, content)
+    return { messageId: updated.id, content: updated.content }
+  } catch (err) {
+    if (isPartialGenerationError(err) && (await getChat(chatId))) {
+      await addMessageVariation(lastAssistant.id, err.content, { truncated: true })
+      throw err.cause
+    }
+    throw err
+  }
 }
 
 export const editLastUserMessage = async (
@@ -300,15 +353,23 @@ export const editLastUserMessage = async (
     contextWindowSize
   )
 
-  const assistantContent = await streamAssistantReply(
-    chatId,
-    promptMessages,
-    generationParams,
-    callbacks
-  )
-  await assertChatExists(chatId)
-  const assistantMessage = await addMessage(chatId, 'assistant', assistantContent)
-  return { message: updated, regenerated: true, messageId: assistantMessage.id }
+  try {
+    const assistantContent = await streamAssistantReply(
+      chatId,
+      promptMessages,
+      generationParams,
+      callbacks
+    )
+    await assertChatExists(chatId)
+    const assistantMessage = await addMessage(chatId, 'assistant', assistantContent)
+    return { message: updated, regenerated: true, messageId: assistantMessage.id }
+  } catch (err) {
+    if (isPartialGenerationError(err) && (await getChat(chatId))) {
+      await addMessage(chatId, 'assistant', err.content, { truncated: true })
+      throw err.cause
+    }
+    throw err
+  }
 }
 
 export const editLastAssistantMessage = async (chatId: string, content: string): Promise<Message> => {
