@@ -13,6 +13,7 @@ import type {
   ModelPullProgress,
   Persona,
   PersonaSummary,
+  RelayState,
   SyncStatus
 } from '@shared/types'
 import type { ChatSaveInput } from '@shared/chat-schema'
@@ -66,6 +67,16 @@ export interface OpenCharUiApi {
   settings: {
     get(): Promise<AppSettings>
     save(settings: Partial<AppSettings>): Promise<AppSettings>
+  }
+  relay: {
+    /** Whether pairing settings exist and, if so, the relay URL and live
+     * connection state (null while not yet connected). */
+    getStatus(): Promise<{ paired: boolean; relayUrl: string; state: RelayState | null }>
+    /** Parses a scanned/pasted `opencharui://pair?...` code, persists it,
+     * and connects — replacing any previous pairing. */
+    pair(code: string): Promise<void>
+    unpair(): Promise<void>
+    onStatusChanged(callback: (state: RelayState | null) => void): () => void
   }
   sync: {
     now(): Promise<SyncStatus>

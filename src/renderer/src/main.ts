@@ -44,6 +44,18 @@ const bootstrap = async (): Promise<void> => {
   })
   startDeviceSync()
 
+  // Keeps store.llmStatus.relayState live so AppShell's "don't flash the
+  // setup overlay during a brief reconnect" check has real data — without
+  // this, relayState only ever reflected whatever it was at the last
+  // explicit refreshLlm() call. A transition to 'online' is worth an
+  // uncached probe (the agent may have just come back); anything else is
+  // a soft refresh so a flapping connection can't spam requests.
+  window.api.relay.onStatusChanged((state) => {
+    if (store.llmStatus.transport === 'relay') {
+      void store.refreshLlm({ force: state === 'online' })
+    }
+  })
+
   app.mount('#app')
 }
 

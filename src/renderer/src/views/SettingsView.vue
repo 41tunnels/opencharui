@@ -4,27 +4,32 @@ import { useRouter } from 'vue-router'
 import type { AppSettings, SyncStatus } from '@shared/types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/prompt-builder'
 import { DEFAULT_OLLAMA_URL } from '@browser/llm/ollama'
-import { parseConnectionJson } from '@shared/connection-schema'
 import { formatRelativeTime } from '@shared/format-time'
 import { useAppStore } from '@renderer/stores/app'
+import PairingPanel from '@renderer/components/PairingPanel.vue'
 
 const router = useRouter()
 const store = useAppStore()
 const settings = ref<AppSettings>({
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
-  ollamaApiKey: ''
+  ollamaApiKey: '',
+  relayUrl: '',
+  relayPairId: '',
+  relayPskId: ''
 })
 const saved = ref(false)
 const saveError = ref<string | null>(null)
-const connectionJson = ref('')
-const connectionError = ref<string | null>(null)
 const systemPromptTextarea = ref<HTMLTextAreaElement | null>(null)
 
 const syncStatus = ref<SyncStatus>(window.api.sync.getStatus())
 let unsubscribeSync: (() => void) | null = null
 
-const hasApiKey = computed(() => settings.value.ollamaApiKey.trim().length > 0)
+// Relay users hold no bearer token — transport === 'relay' is what gates
+// sync for them, not apiKey (mirrors device-sync.ts's runSync gating).
+const canSync = computed(
+  () => store.llmStatus.transport === 'relay' || settings.value.ollamaApiKey.trim().length > 0
+)
 const syncing = computed(() => syncStatus.value.state === 'syncing')
 
 const syncStatusText = computed(() => {
@@ -118,18 +123,6 @@ const importPersona = async () => {
 const refreshOllama = async () => {
   await store.refreshLlm()
 }
-
-const applyConnectionJson = () => {
-  connectionError.value = null
-  try {
-    const connection = parseConnectionJson(connectionJson.value)
-    settings.value.ollamaUrl = connection.url
-    settings.value.ollamaApiKey = connection.apiKey
-    connectionJson.value = ''
-  } catch (err) {
-    connectionError.value = err instanceof Error ? err.message : 'Invalid connection JSON'
-  }
-}
 </script>
 
 <template>
@@ -184,24 +177,6 @@ const applyConnectionJson = () => {
             — required for amallo instances.
           </p>
         </label>
-        <label class="mb-3 block">
-          <span class="mb-1 block text-sm ui-text-muted">Connection JSON (amallo)</span>
-          <textarea
-            v-model="connectionJson"
-            rows="3"
-            class="ui-input w-full resize-none px-3 py-2 font-mono text-xs"
-            placeholder='{ "url": "https://...", "api_key": "..." }'
-          />
-          <div class="mt-1 flex items-center gap-3">
-            <button class="ui-btn-outline px-3 py-1 text-xs" @click="applyConnectionJson">
-              Apply
-            </button>
-            <span v-if="connectionError" class="text-xs text-red-600 dark:text-red-400">{{ connectionError }}</span>
-            <span v-else class="text-xs ui-text-subtle">
-              Paste "Copy Connection (JSON)" from the amallo tray menu to fill the fields above.
-            </span>
-          </div>
-        </label>
         <p class="mb-3 text-sm ui-text-muted">
           Install and run
           <a
@@ -217,7 +192,7 @@ const applyConnectionJson = () => {
           For remote or custom hosts, set the full base URL (e.g.
           <code class="text-neutral-700 dark:text-neutral-300">http://192.168.1.10:11434</code>).
           Set <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS=*</code> on the server if the browser reports CORS errors.
-          To reach an Ollama exposed via amallo, paste its Connection JSON above.
+          To reach an Ollama exposed via amallo from anywhere, pair with it below instead.
         </p>
         <p class="text-sm">
           Status:
@@ -235,6 +210,8 @@ const applyConnectionJson = () => {
         </button>
       </div>
 
+      <PairingPanel />
+
       <div class="rounded-xl border border-neutral-200 bg-neutral-100/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
         <h3 class="mb-2 text-sm font-medium">Device sync</h3>
         <p class="mb-3 text-sm ui-text-muted">
@@ -246,7 +223,7 @@ const applyConnectionJson = () => {
         </p>
         <button
           class="ui-btn-outline mt-3 px-3 py-1.5 text-sm"
-          :disabled="!hasApiKey || syncing"
+          :disabled="!canSync || syncing"
           @click="runSync"
         >
           {{ syncing ? 'Syncing…' : 'Sync now' }}

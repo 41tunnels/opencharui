@@ -5,21 +5,31 @@ import { DEFAULT_SYSTEM_PROMPT } from '@shared/prompt-builder'
 const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
-  ollamaApiKey: ''
+  ollamaApiKey: '',
+  relayUrl: '',
+  relayPairId: '',
+  relayPskId: ''
 }
+
+// A key list rather than one hardcoded `if` per field in both
+// getSettings and saveSettings — the previous shape needed a matching
+// pair of checks added by hand for every new setting, which is exactly
+// the kind of place a new field (relayUrl/relayPairId/relayPskId) is easy
+// to add to one function and forget in the other.
+const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]
 
 type SettingRow = { key: string; value: string }
 
 export const getSettings = async (): Promise<AppSettings> => {
   const rows = await getAll<SettingRow>('settings')
+  const byKey = new Map(rows.map((row) => [row.key, row.value]))
   const settings: AppSettings = { ...DEFAULT_SETTINGS }
 
-  for (const row of rows) {
+  for (const key of SETTINGS_KEYS) {
+    const raw = byKey.get(key)
+    if (raw === undefined) continue
     try {
-      const parsed = JSON.parse(row.value)
-      if (row.key === 'systemPrompt') settings.systemPrompt = parsed
-      if (row.key === 'ollamaUrl') settings.ollamaUrl = parsed
-      if (row.key === 'ollamaApiKey') settings.ollamaApiKey = parsed
+      settings[key] = JSON.parse(raw)
     } catch {
       // ignore invalid rows
     }
@@ -31,16 +41,10 @@ export const saveSettings = async (partial: Partial<AppSettings>): Promise<AppSe
   const current = await getSettings()
   const next = { ...current, ...partial }
 
-  if (partial.systemPrompt !== undefined) {
-    await put('settings', { key: 'systemPrompt', value: JSON.stringify(next.systemPrompt) })
-  }
-
-  if (partial.ollamaUrl !== undefined) {
-    await put('settings', { key: 'ollamaUrl', value: JSON.stringify(next.ollamaUrl) })
-  }
-
-  if (partial.ollamaApiKey !== undefined) {
-    await put('settings', { key: 'ollamaApiKey', value: JSON.stringify(next.ollamaApiKey) })
+  for (const key of SETTINGS_KEYS) {
+    if (partial[key] !== undefined) {
+      await put('settings', { key, value: JSON.stringify(next[key]) })
+    }
   }
 
   return next

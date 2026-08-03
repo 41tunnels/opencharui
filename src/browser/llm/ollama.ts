@@ -1,8 +1,19 @@
 import type { ModelInfo, ModelPullProgress } from '@shared/types'
 import { getSettings } from '../db/settings'
+import { isRelayConfigured, relayFetch } from '../relay'
+import { ensureRelayConfigured } from '../relay/pairing'
 
 export const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
 const DEV_OLLAMA_PROXY = '/ollama'
+
+type FetchLike = (url: string, init?: RequestInit) => Promise<Response>
+
+/** Picks the transport per connection: relay requests are multiplexed
+ * over one WebSocket (see `browser/relay/fetch.ts`) rather than opening a
+ * real socket per call, but every call site below is unaware of the
+ * difference — both return a real `Response` with a real streamable body. */
+export const httpFetch = (conn: OllamaConnection): FetchLike =>
+  conn.transport === 'relay' ? (relayFetch as FetchLike) : fetch
 
 export interface ChatParams {
   modelId: string
@@ -15,7 +26,12 @@ export interface ChatParams {
 }
 
 export interface OllamaConnection {
+  transport: 'direct' | 'relay'
+  /** '' when transport is 'relay' — relayFetch resolves paths against the
+   * relay session, not a real origin. */
   baseUrl: string
+  /** '' when transport is 'relay' — amallo stamps its own bearer token on
+   * relay-originated requests; web never holds it (see relay/dispatch.rs). */
   apiKey: string
 }
 
@@ -59,46 +75,45 @@ export const resolveConnection = async (): Promise<OllamaConnection> => {
   const { ollamaUrl, ollamaApiKey } = await getSettings()
   const apiKey = ollamaApiKey.trim()
   const custom = ollamaUrl.trim()
+
+  // An explicit direct URL always wins, even with a relay paired — needed
+  // for LAN access and for debugging against a raw Ollama instance.
   if (custom) {
-    cachedConnection = { baseUrl: normalizeOllamaUrl(custom), apiKey }
+    cachedConnection = { transport: 'direct', baseUrl: normalizeOllamaUrl(custom), apiKey }
+    return cachedConnection
+  }
+
+  if (!isRelayConfigured()) await ensureRelayConfigured()
+  if (isRelayConfigured()) {
+    cachedConnection = { transport: 'relay', baseUrl: '', apiKey: '' }
     return cachedConnection
   }
 
   cachedConnection = {
+    transport: 'direct',
     baseUrl: import.meta.env.DEV ? DEV_OLLAMA_PROXY : DEFAULT_OLLAMA_URL,
     apiKey
   }
   return cachedConnection
 }
 
-// Custom headers force a CORS preflight and must be allowlisted by the server,
-// so ngrok-skip-browser-warning (bypasses ngrok's free-tier interstitial) is
-// only sent to ngrok hosts — plain Ollama rejects preflights that request it.
-const isNgrokHost = (baseUrl: string): boolean => {
-  try {
-    return new URL(baseUrl).hostname.includes('ngrok')
-  } catch {
-    return false
-  }
-}
-
 export const buildHeaders = (
-  { baseUrl, apiKey }: OllamaConnection,
+  { apiKey }: OllamaConnection,
   extra?: Record<string, string>
 ): Record<string, string> => ({
   ...(extra ?? {}),
-  ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-  ...(apiKey && isNgrokHost(baseUrl) ? { 'ngrok-skip-browser-warning': 'true' } : {})
+  ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
 })
 
 /**
- * True when the configured connection targets an amallo instance rather than a
- * plain Ollama — inferred from an API key being set (amallo requires a bearer
- * token; a direct Ollama connection has none).
+ * True when the configured connection targets an amallo instance rather
+ * than a plain Ollama — either transport is 'relay' (amallo is
+ * necessarily on the other end of a relay pairing), or a bearer token is
+ * set (the direct/LAN amallo path, which still requires one).
  */
 export const isUsingAmallo = async (): Promise<boolean> => {
-  const { apiKey } = await resolveConnection()
-  return apiKey.length > 0
+  const conn = await resolveConnection()
+  return conn.transport === 'relay' || conn.apiKey.length > 0
 }
 
 const mapTagsModels = (data: TagsResponse): ModelInfo[] =>
@@ -119,9 +134,9 @@ export const fetchTags = async (options: { force?: boolean } = {}): Promise<Tags
 
   const request = (async (): Promise<TagsSnapshot> => {
     try {
-      const { baseUrl, apiKey } = await resolveConnection()
-      const res = await fetch(`${baseUrl}/api/tags`, {
-        headers: buildHeaders({ baseUrl, apiKey }),
+      const conn = await resolveConnection()
+      const res = await httpFetch(conn)(`${conn.baseUrl}/api/tags`, {
+        headers: buildHeaders(conn),
         signal: AbortSignal.timeout(force ? 10_000 : 2000)
       })
 
@@ -200,10 +215,10 @@ export const getModelContextLength = async (modelId: string): Promise<number> =>
   if (cached !== undefined) return cached
 
   try {
-    const { baseUrl, apiKey } = await resolveConnection()
-    const res = await fetch(`${baseUrl}/api/show`, {
+    const conn = await resolveConnection()
+    const res = await httpFetch(conn)(`${conn.baseUrl}/api/show`, {
       method: 'POST',
-      headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
+      headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name: modelId })
     })
     if (!res.ok) {
@@ -267,10 +282,10 @@ export const pullModel = async (
   onProgress: (progress: ModelPullProgress) => void,
   signal?: AbortSignal
 ): Promise<void> => {
-  const { baseUrl, apiKey } = await resolveConnection()
-  const res = await fetch(`${baseUrl}/api/pull`, {
+  const conn = await resolveConnection()
+  const res = await httpFetch(conn)(`${conn.baseUrl}/api/pull`, {
     method: 'POST',
-    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
+    headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ name, stream: true }),
     signal
   })
@@ -321,10 +336,10 @@ export const pullModel = async (
 }
 
 export const deleteModel = async (name: string): Promise<void> => {
-  const { baseUrl, apiKey } = await resolveConnection()
-  const res = await fetch(`${baseUrl}/api/delete`, {
+  const conn = await resolveConnection()
+  const res = await httpFetch(conn)(`${conn.baseUrl}/api/delete`, {
     method: 'DELETE',
-    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
+    headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
     body: JSON.stringify({ name })
   })
 
@@ -368,10 +383,10 @@ export const chat = async (
 
   console.log('[Ollama] POST /api/chat', body)
 
-  const { baseUrl, apiKey } = await resolveConnection()
-  const res = await fetch(`${baseUrl}/api/chat`, {
+  const conn = await resolveConnection()
+  const res = await httpFetch(conn)(`${conn.baseUrl}/api/chat`, {
     method: 'POST',
-    headers: buildHeaders({ baseUrl, apiKey }, { 'Content-Type': 'application/json' }),
+    headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
     signal
   })

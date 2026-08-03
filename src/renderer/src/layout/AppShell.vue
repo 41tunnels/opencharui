@@ -19,6 +19,14 @@ const isSetupPreview = computed(() => {
 
 const mobileSidebarOpen = computed(() => !store.uiState.sidebarCollapsed)
 
+// A relay reconnect (Wi-Fi flip, tab resume) briefly reports
+// ollamaAvailable === false while it's reconnecting — don't flash the
+// full-screen setup modal for that; only show it once the relay actually
+// reports the agent offline.
+const suppressOverlayForRelay = computed(
+  () => store.llmStatus.transport === 'relay' && store.llmStatus.relayState === 'connecting'
+)
+
 const closeSidebarIfMobile = () => {
   if (window.matchMedia(MOBILE_MQ).matches) {
     store.setSidebarCollapsed(true)
@@ -93,7 +101,10 @@ onUnmounted(() => {
     </div>
 
     <OllamaSetupOverlay
-      v-if="(!store.llmStatus.ollamaAvailable || isSetupPreview) && route.name !== 'settings'"
+      v-if="
+        ((!store.llmStatus.ollamaAvailable && !suppressOverlayForRelay) || isSetupPreview) &&
+        route.name !== 'settings'
+      "
       :preview-production="isSetupPreview"
     />
   </div>

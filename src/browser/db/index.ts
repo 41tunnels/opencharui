@@ -1,6 +1,13 @@
 import { notifyDataChanged } from '../sync'
 
-export type StoreName = 'characters' | 'personas' | 'chats' | 'messages' | 'settings' | 'tombstones'
+export type StoreName =
+  | 'characters'
+  | 'personas'
+  | 'chats'
+  | 'messages'
+  | 'settings'
+  | 'tombstones'
+  | 'relaySecrets'
 
 /** Stores whose writes affect Amallo sync payloads (and warrant cross-tab refresh). */
 const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
@@ -12,7 +19,7 @@ const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
 ])
 
 const DB_NAME = 'opencharui'
-const DB_VERSION = 3
+const DB_VERSION = 4
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -72,6 +79,16 @@ export const openDb = (): Promise<IDBDatabase> => {
         // v3: records deletes so they can propagate to other devices via sync.
         if (!db.objectStoreNames.contains('tombstones')) {
           db.createObjectStore('tombstones', { keyPath: 'id' })
+        }
+
+        // v4: relay pairing secrets. A separate store (not `settings`,
+        // which JSON.stringifies every value) specifically because a
+        // CryptoKey is not JSON-serializable — it round-trips through
+        // IndexedDB's structured-clone algorithm instead, which has
+        // explicit native support for CryptoKey and preserves its
+        // non-extractable flag. See db/relay-secrets.ts.
+        if (!db.objectStoreNames.contains('relaySecrets')) {
+          db.createObjectStore('relaySecrets', { keyPath: 'key' })
         }
       }
     })

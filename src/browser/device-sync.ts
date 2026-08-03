@@ -1,6 +1,5 @@
 import { get, getAll, getAllByIndex, putSilent } from './db/index'
-import { getSettings } from './db/settings'
-import { resolveConnection, buildHeaders } from './llm/ollama'
+import { resolveConnection, buildHeaders, httpFetch } from './llm/ollama'
 import { broadcastDataChanged, onLocalDataChanged } from './sync'
 import {
   applySyncedCharacter,
@@ -202,7 +201,7 @@ const postExchange = async (
   const connection = await resolveConnection()
   let res: Response
   try {
-    res = await fetch(`${connection.baseUrl}/amallo/sync/${collection}`, {
+    res = await httpFetch(connection)(`${connection.baseUrl}/amallo/sync/${collection}`, {
       method: 'POST',
       headers: buildHeaders(connection, { 'Content-Type': 'application/json' }),
       body: JSON.stringify(body)
@@ -249,10 +248,15 @@ const syncCollection = async (
 }
 
 const runSync = async (): Promise<SyncStatus> => {
-  const { ollamaApiKey } = await getSettings()
+  const connection = await resolveConnection()
   const lastSyncedAt = await loadLastSyncedAt()
 
-  if (!ollamaApiKey.trim()) {
+  // Sync needs *some* form of amallo authentication — either a relay
+  // pairing (amallo stamps its own bearer token on that path) or a direct
+  // API key (the LAN/tray-copied-connection path). Gating on the raw API
+  // key alone — the previous check — silently disabled sync for every
+  // relay user, since web never holds a bearer token over the relay.
+  if (connection.transport !== 'relay' && !connection.apiKey) {
     emit({ state: 'disabled', lastSyncedAt, error: undefined })
     return status
   }

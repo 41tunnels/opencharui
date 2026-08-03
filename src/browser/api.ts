@@ -1,5 +1,5 @@
 import type { OpenCharUiApi } from '@shared/api'
-import type { Character, Persona } from '@shared/types'
+import type { Character, LLMStatus, Persona } from '@shared/types'
 import {
   normalizeSavedMessages,
   parseChatSave,
@@ -12,10 +12,25 @@ import * as settings from './db/settings'
 import * as uiState from './db/ui-state'
 import * as modelNotes from './db/model-notes'
 import * as ollama from './llm/ollama'
+import type { OllamaProbeResult } from './llm/ollama'
 import * as chatGen from './chat-generation'
 import * as deviceSync from './device-sync'
 import { emit, subscribe } from './events'
 import { listChatsForCharacter, listChatsForPersona } from './db/chats'
+import { onRelayStateChange, relayState } from './relay'
+import * as pairing from './relay/pairing'
+import { getSettings } from './db/settings'
+
+const buildLlmStatus = async (probe: OllamaProbeResult): Promise<LLMStatus> => {
+  const conn = await ollama.resolveConnection()
+  return {
+    ollamaAvailable: probe === 'ok',
+    usingAmallo: await ollama.isUsingAmallo(),
+    unauthorized: probe === 'unauthorized',
+    transport: conn.transport,
+    relayState: conn.transport === 'relay' ? relayState() : null
+  }
+}
 
 const streamCallbacks = (chatId: string) => {
   return {
@@ -135,6 +150,24 @@ export const createBrowserApi = (): OpenCharUiApi => {
         return saved
       }
     },
+    relay: {
+      getStatus: async () => {
+        const s = await getSettings()
+        return {
+          paired: await pairing.isPaired(),
+          relayUrl: s.relayUrl,
+          state: relayState()
+        }
+      },
+      pair: async (code: string) => {
+        await pairing.pairWithCode(code)
+        void deviceSync.syncNow()
+      },
+      unpair: async () => {
+        await pairing.unpair()
+      },
+      onStatusChanged: (callback) => onRelayStateChange(callback)
+    },
     sync: {
       now: () => deviceSync.syncNow(),
       getStatus: () => deviceSync.getSyncStatus(),
@@ -147,21 +180,13 @@ export const createBrowserApi = (): OpenCharUiApi => {
     llm: {
       getStatus: async () => {
         const snapshot = await ollama.fetchTags()
-        return {
-          ollamaAvailable: snapshot.probe === 'ok',
-          usingAmallo: await ollama.isUsingAmallo(),
-          unauthorized: snapshot.probe === 'unauthorized'
-        }
+        return buildLlmStatus(snapshot.probe)
       },
       listModels: async () => ollama.listModels(),
       refresh: async (options) => {
         const snapshot = await ollama.fetchTags(options)
         return {
-          status: {
-            ollamaAvailable: snapshot.probe === 'ok',
-            usingAmallo: await ollama.isUsingAmallo(),
-            unauthorized: snapshot.probe === 'unauthorized'
-          },
+          status: await buildLlmStatus(snapshot.probe),
           models: snapshot.probe === 'ok' ? snapshot.models : []
         }
       },

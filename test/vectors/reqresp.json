@@ -1,0 +1,71 @@
+[
+  {
+    "name": "req/simple_get",
+    "kind": "req",
+    "canonical_json": {
+      "h": [],
+      "m": "GET",
+      "p": "/api/tags"
+    }
+  },
+  {
+    "name": "req/chat_post",
+    "kind": "req",
+    "canonical_json": {
+      "h": [
+        [
+          "content-type",
+          "application/json"
+        ]
+      ],
+      "m": "POST",
+      "p": "/api/chat"
+    },
+    "notes": "header names MUST be lowercased by the sender before encoding"
+  },
+  {
+    "name": "req/multi_value_header",
+    "kind": "req",
+    "canonical_json": {
+      "h": [
+        [
+          "accept",
+          "application/json"
+        ],
+        [
+          "accept",
+          "application/x-ndjson"
+        ]
+      ],
+      "m": "GET",
+      "p": "/api/tags"
+    },
+    "notes": "multi-value headers are repeated [name,value] pairs, not comma-joined"
+  },
+  {
+    "name": "resp/ndjson_stream",
+    "kind": "resp",
+    "canonical_json": {
+      "h": [
+        [
+          "content-type",
+          "application/x-ndjson"
+        ]
+      ],
+      "s": 200
+    }
+  },
+  {
+    "name": "resp/error",
+    "kind": "resp",
+    "canonical_json": {
+      "h": [
+        [
+          "content-type",
+          "text/plain"
+        ]
+      ],
+      "s": 502
+    }
+  }
+]

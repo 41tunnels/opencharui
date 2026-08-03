@@ -22,7 +22,9 @@ export const useAppStore = defineStore('app', () => {
   const llmStatus = ref<LLMStatus>({
     ollamaAvailable: false,
     usingAmallo: false,
-    unauthorized: false
+    unauthorized: false,
+    transport: 'direct',
+    relayState: null
   })
   const models = ref<ModelInfo[]>([])
   const selectedModelId = ref<string | null>(null)

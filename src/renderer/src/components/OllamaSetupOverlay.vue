@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { DEFAULT_OLLAMA_URL } from '@browser/llm/ollama'
 import { useAppStore } from '@renderer/stores/app'
+import PairingPanel from './PairingPanel.vue'
 
 const props = defineProps<{
   previewProduction?: boolean
@@ -12,6 +13,7 @@ const router = useRouter()
 const store = useAppStore()
 const checking = ref(false)
 const platformTab = ref<'windows' | 'macos'>('windows')
+const showDirectSetup = ref(false)
 
 const isDev = import.meta.env.DEV
 const showProductionSetup = computed(() => !isDev || props.previewProduction)
@@ -98,20 +100,34 @@ const openSettings = () => {
       </p>
 
       <div class="mb-5">
-        <h2 class="text-xl font-semibold tracking-tight">Connect Ollama</h2>
+        <h2 class="text-xl font-semibold tracking-tight">Connect from anywhere with amallo</h2>
         <p class="mt-2 text-sm leading-relaxed ui-text-muted">
-          If you don’t have Ollama yet, download it from
+          Install
           <a
             href="https://ollama.com/download"
             target="_blank"
             rel="noopener noreferrer"
             class="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-400"
-            >ollama.com/download</a
+            >Ollama</a
           >
-          and start the app — then allow this site to reach it.
+          and amallo, then scan or paste the pairing code from amallo's tray menu — no
+          <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code> setup needed.
         </p>
       </div>
 
+      <PairingPanel />
+
+      <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <button
+          type="button"
+          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
+          @click="showDirectSetup = !showDirectSetup"
+        >
+          {{ showDirectSetup ? 'Hide' : 'Or connect directly on your network' }}
+        </button>
+      </div>
+
+      <template v-if="showDirectSetup">
       <template v-if="!showProductionSetup">
         <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
           <p class="text-sm font-medium">Development connection</p>
@@ -275,6 +291,7 @@ const openSettings = () => {
             </div>
           </div>
         </div>
+      </template>
       </template>
 
       <div

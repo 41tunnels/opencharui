@@ -1,0 +1,113 @@
+{
+  "encode": [
+    {
+      "name": "encode/req",
+      "type_hex": "01",
+      "stream_id": 1,
+      "payload_hex": "7b226d223a22474554222c2270223a222f6170692f74616773227d",
+      "want_hex": "010000000100001b7b226d223a22474554222c2270223a222f6170692f74616773227d"
+    },
+    {
+      "name": "encode/reserved_type_0x09",
+      "type_hex": "09",
+      "stream_id": 1,
+      "payload_hex": "",
+      "expect_error": "inner_reserved_type"
+    },
+    {
+      "name": "encode/reserved_type_0x0a",
+      "type_hex": "0a",
+      "stream_id": 1,
+      "payload_hex": "",
+      "expect_error": "inner_reserved_type"
+    },
+    {
+      "name": "encode/reserved_type_0x0b",
+      "type_hex": "0b",
+      "stream_id": 1,
+      "payload_hex": "",
+      "expect_error": "inner_reserved_type"
+    }
+  ],
+  "decode": [
+    {
+      "name": "decode/req",
+      "buf_hex": "010000000100001b7b226d223a22474554222c2270223a222f6170692f74616773227d",
+      "want_frames": [
+        {
+          "type_hex": "01",
+          "stream_id": 1,
+          "payload_hex": "7b226d223a22474554222c2270223a222f6170692f74616773227d"
+        }
+      ]
+    },
+    {
+      "name": "decode/three_frames_concatenated",
+      "buf_hex": "01000000030000467b226d223a22504f5354222c2270223a222f6170692f63686174222c2268223a5b5b22636f6e74656e742d74797065222c226170706c69636174696f6e2f6a736f6e225d5d7d02000000030000127b226d6f64656c223a226c6c616d6133227d0300000003000000",
+      "want_frames": [
+        {
+          "type_hex": "01",
+          "stream_id": 3,
+          "payload_hex": "7b226d223a22504f5354222c2270223a222f6170692f63686174222c2268223a5b5b22636f6e74656e742d74797065222c226170706c69636174696f6e2f6a736f6e225d5d7d"
+        },
+        {
+          "type_hex": "02",
+          "stream_id": 3,
+          "payload_hex": "7b226d6f64656c223a226c6c616d6133227d"
+        },
+        {
+          "type_hex": "03",
+          "stream_id": 3,
+          "payload_hex": ""
+        }
+      ]
+    },
+    {
+      "name": "decode/zero_length_payload",
+      "buf_hex": "0300000000000000",
+      "want_frames": [
+        {
+          "type_hex": "03",
+          "stream_id": 0,
+          "payload_hex": ""
+        }
+      ]
+    },
+    {
+      "name": "decode/max_stream_id",
+      "buf_hex": "07ffffffff000000",
+      "want_frames": [
+        {
+          "type_hex": "07",
+          "stream_id": 4294967295,
+          "payload_hex": ""
+        }
+      ]
+    },
+    {
+      "name": "decode/truncated_header",
+      "buf_hex": "0100000001",
+      "expect_error": "inner_frame_too_short"
+    },
+    {
+      "name": "decode/truncated_payload",
+      "buf_hex": "010000000100001b7b226d223a22474554222c2270223a222f6170692f74616773",
+      "expect_error": "inner_truncated"
+    },
+    {
+      "name": "decode/reserved_type_0x09",
+      "buf_hex": "0900000000000000",
+      "expect_error": "inner_reserved_type"
+    },
+    {
+      "name": "decode/reserved_type_0x0a",
+      "buf_hex": "0a00000000000000",
+      "expect_error": "inner_reserved_type"
+    },
+    {
+      "name": "decode/reserved_type_0x0b",
+      "buf_hex": "0b00000000000000",
+      "expect_error": "inner_reserved_type"
+    }
+  ]
+}
