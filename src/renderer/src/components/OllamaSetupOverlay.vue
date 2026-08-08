@@ -13,7 +13,7 @@ const router = useRouter()
 const store = useAppStore()
 const checking = ref(false)
 const platformTab = ref<'windows' | 'macos'>('windows')
-const showDirectSetup = ref(false)
+const mode = ref<'ollama' | 'amallo'>('ollama')
 
 const isDev = import.meta.env.DEV
 const showProductionSetup = computed(() => !isDev || props.previewProduction)
@@ -100,8 +100,10 @@ const openSettings = () => {
       </p>
 
       <div class="mb-5">
-        <h2 class="text-xl font-semibold tracking-tight">Connect from anywhere with amallo</h2>
-        <p class="mt-2 text-sm leading-relaxed ui-text-muted">
+        <h2 class="text-xl font-semibold tracking-tight">
+          {{ mode === 'amallo' ? 'Connect from anywhere with amallo' : 'Connect to Ollama' }}
+        </h2>
+        <p v-if="mode === 'amallo'" class="mt-2 text-sm leading-relaxed ui-text-muted">
           Install
           <a
             href="https://ollama.com/download"
@@ -113,21 +115,22 @@ const openSettings = () => {
           and amallo, then scan or paste the pairing code from amallo's tray menu — no
           <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code> setup needed.
         </p>
+        <p v-else class="mt-2 text-sm leading-relaxed ui-text-muted">
+          Install
+          <a
+            href="https://ollama.com/download"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-400"
+            >Ollama</a
+          >
+          and make sure it's running so OpenCharUI can reach it.
+        </p>
       </div>
 
-      <PairingPanel />
+      <PairingPanel v-if="mode === 'amallo'" />
 
-      <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
-        <button
-          type="button"
-          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
-          @click="showDirectSetup = !showDirectSetup"
-        >
-          {{ showDirectSetup ? 'Hide' : 'Or connect directly on your network' }}
-        </button>
-      </div>
-
-      <template v-if="showDirectSetup">
+      <template v-else>
       <template v-if="!showProductionSetup">
         <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
           <p class="text-sm font-medium">Development connection</p>
@@ -293,6 +296,25 @@ const openSettings = () => {
         </div>
       </template>
       </template>
+
+      <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <button
+          v-if="mode === 'ollama'"
+          type="button"
+          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
+          @click="mode = 'amallo'"
+        >
+          Connect using Amallo
+        </button>
+        <button
+          v-else
+          type="button"
+          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
+          @click="mode = 'ollama'"
+        >
+          Use Ollama directly
+        </button>
+      </div>
 
       <div
         class="mt-6 flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-5 dark:border-neutral-800"
