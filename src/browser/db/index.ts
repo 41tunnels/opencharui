@@ -8,6 +8,9 @@ export type StoreName =
   | 'settings'
   | 'tombstones'
   | 'relaySecrets'
+  | 'syncMeta'
+  | 'syncAcks'
+  | 'blobCache'
 
 /** Stores whose writes affect Amallo sync payloads (and warrant cross-tab refresh). */
 const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
@@ -19,7 +22,7 @@ const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
 ])
 
 const DB_NAME = 'opencharui'
-const DB_VERSION = 4
+const DB_VERSION = 5
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -89,6 +92,27 @@ export const openDb = (): Promise<IDBDatabase> => {
         // non-extractable flag. See db/relay-secrets.ts.
         if (!db.objectStoreNames.contains('relaySecrets')) {
           db.createObjectStore('relaySecrets', { keyPath: 'key' })
+        }
+
+        // v5: the generic sync engine's own state (see browser/sync/).
+        // None of these three are in SYNC_NOTIFY_STORES — writing an ack or
+        // cursor must never itself schedule another sync pass.
+        if (!db.objectStoreNames.contains('syncMeta')) {
+          // Small keyed rows: cursor, storeId, clientId, lastSyncedAt.
+          // Replaces the old `settings` row keyed 'deviceSync'.
+          db.createObjectStore('syncMeta', { keyPath: 'key' })
+        }
+        if (!db.objectStoreNames.contains('syncAcks')) {
+          // The server-acknowledged {hash, seq, deleted} per record, keyed
+          // `${namespace}:${key}` — what `shouldPush` compares the current
+          // local hash against.
+          const store = db.createObjectStore('syncAcks', { keyPath: 'id' })
+          store.createIndex('byNamespace', 'namespace')
+        }
+        if (!db.objectStoreNames.contains('blobCache')) {
+          // Downloaded blob bytes, keyed by content hash, so re-applying a
+          // document doesn't re-download its avatar every pass.
+          db.createObjectStore('blobCache', { keyPath: 'hash' })
         }
       }
     })
@@ -186,6 +210,14 @@ export const deleteByKey = (storeName: StoreName, key: string): Promise<void> =>
 /** Like deleteByKey but does not notify — used by the sync apply path. */
 export const deleteByKeySilent = (storeName: StoreName, key: string): Promise<void> => {
   return writeTx(storeName, (store) => store.delete(key)).then(() => undefined)
+}
+
+/** Deletes every row in a store. Used when the sync engine detects the
+ * remote store was wiped/replaced (a changed `storeId`) and needs to reset
+ * its local bookkeeping (`syncAcks`, cursor) for a full resync — never used
+ * on user data stores. */
+export const clearStore = (storeName: StoreName): Promise<void> => {
+  return writeTx(storeName, (store) => store.clear()).then(() => undefined)
 }
 
 export const deleteMessagesForChat = async (

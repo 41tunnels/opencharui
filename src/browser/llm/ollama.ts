@@ -67,7 +67,7 @@ export const invalidateOllamaBaseUrl = (): void => {
 
 const normalizeOllamaUrl = (url: string): string => url.replace(/\/+$/, '')
 
-// Shared by the LLM client and the device-sync engine so both hit the same
+// Shared by the LLM client and the sync engine (browser/sync/engine.ts) so both hit the same
 // base URL with the same auth headers (and honour the settings-save cache reset).
 export const resolveConnection = async (): Promise<OllamaConnection> => {
   if (cachedConnection) return cachedConnection

@@ -26,7 +26,7 @@ const syncStatus = ref<SyncStatus>(window.api.sync.getStatus())
 let unsubscribeSync: (() => void) | null = null
 
 // Relay users hold no bearer token — transport === 'relay' is what gates
-// sync for them, not apiKey (mirrors device-sync.ts's runSync gating).
+// sync for them, not apiKey (mirrors sync/engine.ts's runSync gating).
 const canSync = computed(
   () => store.llmStatus.transport === 'relay' || settings.value.ollamaApiKey.trim().length > 0
 )

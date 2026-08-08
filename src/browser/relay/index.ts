@@ -1,4 +1,4 @@
-// The transport singleton ollama.ts and device-sync.ts share, plus a
+// The transport singleton ollama.ts and sync/engine.ts share, plus a
 // pre-bound relayFetch. Pairing/settings storage (IndexedDB v4,
 // PairingPanel.vue) lands in later steps — until something calls
 // configureRelay(), the relay transport simply doesn't exist, and
