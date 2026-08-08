@@ -18,7 +18,7 @@ const buildUmamiScript = (): string => {
 const umamiPlugin = (): Plugin => ({
   name: 'umami-github-pages',
   transformIndexHtml(html) {
-    if (false) return html
+    if (process.env.VITE_ENABLE_UMAMI !== 'true') return html
     return html.replace('</body>', `    ${buildUmamiScript()}\n  </body>`)
   }
 })
