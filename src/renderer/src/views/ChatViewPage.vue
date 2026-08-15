@@ -44,6 +44,17 @@ watch(
   { immediate: true }
 )
 
+// The real window comes from the running model, so it cannot be read while
+// the connection is down — and a page opened before the relay is up would
+// otherwise keep showing the fallback (and a wildly wrong context
+// percentage) until the chat is reopened.
+watch(
+  () => store.llmStatus.ollamaAvailable,
+  (available) => {
+    if (available) void loadModelContextTokens()
+  }
+)
+
 const loadFromRoute = async () => {
   const id = route.params.id as string
   if (!id) return

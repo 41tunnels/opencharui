@@ -7,7 +7,7 @@
 // written (`done_reason: "length"`, zero content).
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { chat, invalidateOllamaBaseUrl } from '@browser/llm/ollama'
+import { chat, getModelContextLength, invalidateOllamaBaseUrl } from '@browser/llm/ollama'
 import { saveSettings } from '@browser/db/settings'
 
 const ndjson = (lines: object[], init?: ResponseInit): Response => {
@@ -106,5 +106,57 @@ describe('ollama chat streaming', () => {
 
     await expect(chat(params, { onToken: () => {} })).rejects.toThrow(/model not found/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('model context length', () => {
+  it('prefers the window the model is loaded with over the architectural maximum', async () => {
+    // /api/show reports what the architecture supports; /api/ps reports
+    // what Ollama actually loaded. Sizing prompts against the former is
+    // what let a prompt fill the real window and leave ~200 tokens to
+    // answer in.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/ps')) {
+        return new Response(
+          JSON.stringify({ models: [{ name: 'test-model', context_length: 32768 }] }),
+          { status: 200 }
+        )
+      }
+      return new Response(JSON.stringify({ model_info: { 'test.context_length': 262144 } }), {
+        status: 200
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await getModelContextLength('test-model')).toBe(32768)
+  })
+
+  it('falls back to /api/show while the model is not loaded, without caching it', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/ps')) {
+        return new Response(JSON.stringify({ models: [] }), { status: 200 })
+      }
+      return new Response(JSON.stringify({ model_info: { 'test.context_length': 262144 } }), {
+        status: 200
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect(await getModelContextLength('test-model')).toBe(262144)
+
+    // Once it loads, the real window must win — caching the fallback would
+    // pin the architectural number for the rest of the session.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url.endsWith('/api/ps')
+          ? new Response(
+              JSON.stringify({ models: [{ model: 'test-model', context_length: 8192 }] }),
+              { status: 200 }
+            )
+          : new Response('{}', { status: 200 })
+      )
+    )
+    expect(await getModelContextLength('test-model')).toBe(8192)
   })
 })

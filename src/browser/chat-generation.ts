@@ -19,9 +19,15 @@ import {
   resolveChatSystemPrompt,
   toOllamaKeepAlive
 } from '@shared/chat-settings'
+import { fitMessagesToContext } from '@shared/context-usage'
 import type { Message } from '@shared/types'
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
+
+/** Room kept free for the reply when neither the chat nor the character
+ * sets a max — Ollama would otherwise generate until the context runs out,
+ * which is precisely the case that leaves nothing to generate into. */
+const DEFAULT_RESERVED_REPLY_TOKENS = 512
 
 export interface StreamCallbacks {
   onChunk: (delta: string) => void
@@ -138,11 +144,24 @@ const streamAssistantReply = async (
     await assertChatExists(chatId)
     const { modelId } = await resolveModel(chatId)
 
+    // The history window is a message count, so a long chat can hand the
+    // model a prompt that fills its context and leaves no room to answer.
+    // Trim against the window the model is actually loaded with, keeping
+    // the reply's budget free.
+    const contextTokens = await ollama.getModelContextLength(modelId)
+    const reserveTokens = generationParams.maxTokens ?? DEFAULT_RESERVED_REPLY_TOKENS
+    const fitted = fitMessagesToContext(messages, { contextTokens, reserveTokens })
+    if (fitted.dropped > 0) {
+      console.log(
+        `[chat] dropped ${fitted.dropped} old message(s) to keep ${reserveTokens} tokens free for the reply (context ${contextTokens})`
+      )
+    }
+
     try {
       await ollama.chat(
         {
           modelId,
-          messages,
+          messages: fitted.messages,
           temperature: generationParams.temperature,
           topP: generationParams.topP,
           maxTokens: generationParams.maxTokens,

@@ -184,6 +184,12 @@ export const probeOllama = async (options: { force?: boolean } = {}): Promise<Ol
 const DEFAULT_CONTEXT_TOKENS = 8192
 
 const modelContextCache = new Map<string, number>()
+/** When each cached value was read from `/api/ps`. Ollama re-sizes a
+ * model's window as it reloads — this machine went from 32768 to 65536
+ * mid-session — so a value cached for the whole session is a value that
+ * quietly goes wrong. */
+const loadedContextFetchedAt = new Map<string, number>()
+const LOADED_CONTEXT_TTL_MS = 30_000
 
 type ShowResponse = {
   model_info?: Record<string, unknown>
@@ -210,10 +216,54 @@ const parseContextLength = (data: ShowResponse): number | null => {
   return null
 }
 
+type PsResponse = {
+  models?: Array<{ name?: string; model?: string; context_length?: number }>
+}
+
+/**
+ * The context window the model is *actually loaded with*, which is not the
+ * one `/api/show` reports: that is the architecture's maximum (262144 for
+ * gemma4), while Ollama loads the model with its own, far smaller window
+ * unless told otherwise. Sizing anything against the architectural number
+ * means the prompt is allowed to grow until it fills the real window, and
+ * the reply gets whatever few tokens are left — `done_reason: "length"`
+ * after 200 tokens, cut off mid-sentence.
+ *
+ * Only a loaded model appears here, so this returns null until the first
+ * generation has loaded it; the caller falls back to `/api/show` and
+ * re-checks next time rather than caching a value that is likely wrong.
+ */
+const fetchLoadedContextLength = async (modelId: string): Promise<number | null> => {
+  try {
+    const conn = await resolveConnection()
+    const res = await httpFetch(conn)(`${conn.baseUrl}/api/ps`, { headers: buildHeaders(conn) })
+    if (!res.ok) return null
+    const data = (await res.json()) as PsResponse
+    const entry = data.models?.find((m) => m.name === modelId || m.model === modelId)
+    const loaded = entry?.context_length
+    return typeof loaded === 'number' && loaded > 0 ? loaded : null
+  } catch {
+    return null
+  }
+}
+
 export const getModelContextLength = async (modelId: string): Promise<number> => {
   const cached = modelContextCache.get(modelId)
-  if (cached !== undefined) return cached
+  if (cached !== undefined && Date.now() - (loadedContextFetchedAt.get(modelId) ?? 0) < LOADED_CONTEXT_TTL_MS) {
+    return cached
+  }
 
+  const loaded = await fetchLoadedContextLength(modelId)
+  if (loaded !== null) {
+    modelContextCache.set(modelId, loaded)
+    loadedContextFetchedAt.set(modelId, Date.now())
+    return loaded
+  }
+
+  // Nothing below is cached: these are the values used while the model is
+  // not loaded, and the loaded window above supersedes them as soon as it
+  // exists. Caching here would pin the architectural maximum for the rest
+  // of the session, which is the number that caused the truncation.
   try {
     const conn = await resolveConnection()
     const res = await httpFetch(conn)(`${conn.baseUrl}/api/show`, {
@@ -221,17 +271,11 @@ export const getModelContextLength = async (modelId: string): Promise<number> =>
       headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name: modelId })
     })
-    if (!res.ok) {
-      modelContextCache.set(modelId, DEFAULT_CONTEXT_TOKENS)
-      return DEFAULT_CONTEXT_TOKENS
-    }
+    if (!res.ok) return DEFAULT_CONTEXT_TOKENS
 
     const data = (await res.json()) as ShowResponse
-    const contextLength = parseContextLength(data) ?? DEFAULT_CONTEXT_TOKENS
-    modelContextCache.set(modelId, contextLength)
-    return contextLength
+    return parseContextLength(data) ?? DEFAULT_CONTEXT_TOKENS
   } catch {
-    modelContextCache.set(modelId, DEFAULT_CONTEXT_TOKENS)
     return DEFAULT_CONTEXT_TOKENS
   }
 }
@@ -250,9 +294,11 @@ export const getDefaultModelId = async (): Promise<string | null> => {
 export const clearModelContextCache = (modelId?: string): void => {
   if (modelId) {
     modelContextCache.delete(modelId)
+    loadedContextFetchedAt.delete(modelId)
     return
   }
   modelContextCache.clear()
+  loadedContextFetchedAt.clear()
 }
 
 type PullResponse = {
