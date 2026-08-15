@@ -97,6 +97,12 @@ export interface OpenCharUiApi {
     editLastUserMessage(chatId: string, content: string): Promise<Message>
     editLastAssistantMessage(chatId: string, content: string): Promise<Message>
     deleteMessage(chatId: string, messageId: string): Promise<void>
+    /** Rebuild the rolling summary from the whole history. Resolves null
+     * when the chat is too short to be worth compacting. */
+    rebuildSummary(chatId: string): Promise<{ folded: number; keptVerbatim: number } | null>
+    /** Drop the summary; the chat goes back to sending history verbatim. */
+    clearSummary(chatId: string): Promise<void>
+    saveSummary(chatId: string, summary: string, summarizedThrough: string): Promise<void>
     abort(chatId: string): Promise<void>
     onChunk(callback: (event: { chatId: string; delta: string }) => void): () => void
     onThinking(callback: (event: { chatId: string; delta: string }) => void): () => void

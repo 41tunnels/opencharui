@@ -68,6 +68,21 @@ export interface Chat {
    * Minutes when positive; 0 unloads immediately; -1 keeps loaded indefinitely.
    */
   keepAliveMinutes?: number
+  /**
+   * "Story so far" for the turns that are no longer sent verbatim. A long
+   * chat otherwise sends every message every turn, which grows without
+   * bound: the prompt fills the model's context, replies get squeezed into
+   * what is left, and each turn costs a full re-read of the history.
+   *
+   * The messages it covers are never deleted — this is a prompt-building
+   * artifact, so clearing it restores the raw history.
+   */
+  summary?: string
+  /** Id of the last message the summary covers. Everything after it is
+   * still sent verbatim. */
+  summarizedThrough?: string
+  /** When the summary was last rebuilt. */
+  summarizedAt?: number
 }
 
 export interface ChatSettingsInput {

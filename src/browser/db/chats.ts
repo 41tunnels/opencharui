@@ -127,7 +127,15 @@ export const applySyncedChat = async (save: ChatSaveInput, updatedAt: number): P
     ...(save.topP !== undefined ? { topP: save.topP } : {}),
     ...(save.maxTokens !== undefined ? { maxTokens: save.maxTokens } : {}),
     ...(save.contextWindowSize !== undefined ? { contextWindowSize: save.contextWindowSize } : {}),
-    ...(save.keepAliveMinutes !== undefined ? { keepAliveMinutes: save.keepAliveMinutes } : {})
+    ...(save.keepAliveMinutes !== undefined ? { keepAliveMinutes: save.keepAliveMinutes } : {}),
+    // The rolling summary travels with the chat like any other setting.
+    // Rebuilding this record without it means every sync silently drops
+    // the compaction and the chat starts sending its full history again.
+    ...(save.summary !== undefined ? { summary: save.summary } : {}),
+    ...(save.summarizedThrough !== undefined
+      ? { summarizedThrough: save.summarizedThrough }
+      : {}),
+    ...(save.summarizedAt !== undefined ? { summarizedAt: save.summarizedAt } : {})
   }
   await putSilent('chats', chat)
 }
@@ -148,6 +156,31 @@ export const setChatModel = async (id: string, modelId: string, provider: 'ollam
   const chat = await get<Chat>('chats', id)
   if (!chat) throw new Error('Chat not found')
   await put('chats', { ...chat, modelId, provider, updatedAt: Date.now() })
+}
+
+/** Stores (or clears) a chat's rolling summary. Passing an empty summary
+ * drops it and returns the chat to sending its history verbatim. */
+export const saveChatSummary = async (
+  id: string,
+  summary: string,
+  summarizedThrough: string | undefined
+): Promise<void> => {
+  const chat = await get<Chat>('chats', id)
+  if (!chat) throw new Error('Chat not found')
+
+  const updated: Chat = { ...chat, updatedAt: Date.now() }
+  const trimmed = summary.trim()
+  if (trimmed && summarizedThrough) {
+    updated.summary = trimmed
+    updated.summarizedThrough = summarizedThrough
+    updated.summarizedAt = Date.now()
+  } else {
+    delete updated.summary
+    delete updated.summarizedThrough
+    delete updated.summarizedAt
+  }
+
+  await put('chats', updated)
 }
 
 export const saveChatSettings = async (

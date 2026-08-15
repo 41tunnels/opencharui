@@ -61,16 +61,47 @@ export const buildSystemContent = (
   return parts.join('\n\n')
 }
 
+/** The compacted turns, as they appear in the system block. Kept apart
+ * from the character description so the model reads it as events that
+ * happened rather than as part of who the character is. */
+export const buildSummaryPart = (summary?: string): string | null => {
+  const trimmed = summary?.trim()
+  if (!trimmed) return null
+  return `Story so far (earlier events in this conversation, summarised — treat as established fact and continue from it):
+${trimmed}`
+}
+
+/** History still sent verbatim: everything after the message the summary
+ * covers. An unknown id means the summary is stale (the message was
+ * deleted), in which case the full history is used rather than silently
+ * dropping turns. */
+export const historyAfterSummary = (
+  chatHistory: Message[],
+  summarizedThrough?: string
+): Message[] => {
+  if (!summarizedThrough) return chatHistory
+  const index = chatHistory.findIndex((m) => m.id === summarizedThrough)
+  return index === -1 ? chatHistory : chatHistory.slice(index + 1)
+}
+
+export interface PromptCompaction {
+  summary?: string
+  summarizedThrough?: string
+}
+
 export const buildMessages = (
   systemPrompt: string,
   character: Character,
   persona: Persona | undefined,
   chatHistory: Message[],
   userInput: string,
-  historyWindow = HISTORY_WINDOW
+  historyWindow = HISTORY_WINDOW,
+  compaction: PromptCompaction = {}
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> => {
-  const system = buildSystemContent(systemPrompt, character, persona)
-  const history = chatHistory
+  const system = buildSystemContent(systemPrompt, character, persona, [
+    buildSummaryPart(compaction.summary)
+  ])
+  const history = historyAfterSummary(chatHistory, compaction.summarizedThrough)
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .slice(-historyWindow)
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))

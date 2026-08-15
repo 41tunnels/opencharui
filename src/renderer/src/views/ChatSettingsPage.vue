@@ -22,6 +22,10 @@ const topP = ref('')
 const maxTokens = ref('')
 const contextWindowSize = ref(20)
 const keepAliveMinutes = ref('')
+const summary = ref('')
+const summaryBusy = ref(false)
+const summaryNotice = ref<string | null>(null)
+const summaryError = ref<string | null>(null)
 
 const chatId = computed(() => route.params.id as string)
 const chat = computed(() =>
@@ -54,6 +58,9 @@ const loadChatSettings = async () => {
     contextWindowSize.value = resolveChatContextWindowSize(current)
     keepAliveMinutes.value =
       current.keepAliveMinutes !== undefined ? String(current.keepAliveMinutes) : ''
+    summary.value = current.summary ?? ''
+    summaryNotice.value = null
+    summaryError.value = null
   } catch (err) {
     loadError.value = err instanceof Error ? err.message : 'Failed to load chat settings'
   } finally {
@@ -63,6 +70,54 @@ const loadChatSettings = async () => {
 
 onMounted(loadChatSettings)
 watch(chatId, loadChatSettings)
+
+const summarizedCount = computed(() => {
+  const messages = chat.value?.messages ?? []
+  const through = chat.value?.summarizedThrough
+  if (!through) return 0
+  const index = messages.findIndex((m) => m.id === through)
+  return index === -1 ? 0 : index + 1
+})
+
+const runSummaryAction = async (
+  action: () => Promise<string | null>
+): Promise<void> => {
+  summaryBusy.value = true
+  summaryError.value = null
+  summaryNotice.value = null
+  try {
+    summaryNotice.value = await action()
+    const refreshed = await window.api.chats.get(chatId.value)
+    summary.value = refreshed.summary ?? ''
+    if (store.activeChat?.id === refreshed.id) store.activeChat = refreshed
+  } catch (err) {
+    summaryError.value = err instanceof Error ? err.message : 'Summary action failed'
+  } finally {
+    summaryBusy.value = false
+  }
+}
+
+const rebuildSummary = () =>
+  runSummaryAction(async () => {
+    const result = await window.api.chat.rebuildSummary(chatId.value)
+    return result
+      ? `Folded ${result.folded} messages, keeping the last ${result.keptVerbatim} verbatim.`
+      : 'This chat is still short enough to send in full — nothing to summarise yet.'
+  })
+
+const clearSummary = () =>
+  runSummaryAction(async () => {
+    await window.api.chat.clearSummary(chatId.value)
+    return 'Summary cleared. The full history will be sent again until it is compacted.'
+  })
+
+const saveSummaryEdits = () =>
+  runSummaryAction(async () => {
+    const through = chat.value?.summarizedThrough
+    if (!through) throw new Error('There is no summary to edit yet')
+    await window.api.chat.saveSummary(chatId.value, summary.value, through)
+    return 'Summary saved.'
+  })
 
 const parseOptionalNumber = (value: string | number): number | undefined => {
   if (value === '' || value === null || value === undefined) return undefined
@@ -242,6 +297,61 @@ const save = async () => {
               Length cap: 128 short, 512 moderate, 1024+ long replies.
             </p>
           </label>
+        </div>
+
+        <div class="rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-medium">Story so far</span>
+            <span class="text-xs ui-text-subtle">
+              {{
+                summarizedCount > 0
+                  ? `${summarizedCount} older messages compacted`
+                  : 'Nothing compacted yet'
+              }}
+            </span>
+          </div>
+          <p class="mb-2 text-xs ui-text-subtle">
+            Once a chat outgrows the model's context, its older turns are folded into these notes
+            and the recent ones keep being sent in full. Nothing is deleted — clearing this sends
+            the whole history again.
+          </p>
+          <textarea
+            v-model="summary"
+            rows="8"
+            :disabled="summaryBusy"
+            placeholder="No summary yet. One is written automatically when the chat grows large, or you can build it now."
+            class="ui-input w-full resize-y font-mono text-xs"
+          />
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              class="ui-btn-ghost px-3 py-1.5 text-sm disabled:opacity-50"
+              :disabled="summaryBusy"
+              @click="rebuildSummary"
+            >
+              {{ summaryBusy ? 'Working…' : 'Rebuild from history' }}
+            </button>
+            <button
+              type="button"
+              class="ui-btn-ghost px-3 py-1.5 text-sm disabled:opacity-50"
+              :disabled="summaryBusy || !summarizedCount"
+              @click="saveSummaryEdits"
+            >
+              Save edits
+            </button>
+            <button
+              type="button"
+              class="ui-btn-ghost px-3 py-1.5 text-sm disabled:opacity-50"
+              :disabled="summaryBusy || !summarizedCount"
+              @click="clearSummary"
+            >
+              Clear
+            </button>
+            <span v-if="summaryNotice" class="text-xs ui-text-subtle">{{ summaryNotice }}</span>
+            <span v-if="summaryError" class="text-xs text-red-600 dark:text-red-400">{{
+              summaryError
+            }}</span>
+          </div>
         </div>
 
         <p class="text-xs ui-text-subtle">

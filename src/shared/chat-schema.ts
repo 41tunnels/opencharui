@@ -18,7 +18,11 @@ const chatGenerationSettingsSchema = z.object({
   maxTokens: z.number().int().positive().optional(),
   contextWindowSize: z.number().int().min(4).optional(),
   /** Minutes when > 0; 0 = unload; -1 = keep forever */
-  keepAliveMinutes: z.number().int().min(-1).optional()
+  keepAliveMinutes: z.number().int().min(-1).optional(),
+  /** Rolling compaction: see Chat.summary */
+  summary: z.string().optional(),
+  summarizedThrough: z.string().uuid().optional(),
+  summarizedAt: z.number().optional()
 })
 
 export const chatSaveSchema = z

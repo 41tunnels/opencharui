@@ -20,6 +20,7 @@ import {
   toOllamaKeepAlive
 } from '@shared/chat-settings'
 import { fitMessagesToContext } from '@shared/context-usage'
+import { compactChatIfNeeded } from './chat-compaction'
 import type { Message } from '@shared/types'
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -120,8 +121,18 @@ const resolvePromptContext = async (chatId: string) => {
     persona: chat.persona,
     systemPrompt: resolveChatSystemPrompt(chat, settings.systemPrompt),
     contextWindowSize: resolveChatContextWindowSize(chat),
-    generationParams: resolveChatGenerationParams(chat, character)
+    generationParams: resolveChatGenerationParams(chat, character),
+    compaction: { summary: chat.summary, summarizedThrough: chat.summarizedThrough }
   }
+}
+
+/** Folds older turns into the chat's summary when the prompt has grown too
+ * large, before the prompt for this generation is built. Returns nothing:
+ * the result is read back through `resolvePromptContext`, so a compaction
+ * that failed simply leaves the previous summary in place. */
+const compactBeforeGenerating = async (chatId: string): Promise<void> => {
+  const { modelId } = await resolveModel(chatId)
+  await compactChatIfNeeded(chatId, modelId)
 }
 
 const streamAssistantReply = async (
@@ -256,14 +267,16 @@ export const sendUserMessage = async (
   const character = await getCharacter(chat.characterId)
   if (!character) throw new Error('Character not found')
 
-  const { systemPrompt, persona, contextWindowSize, generationParams } =
-    await resolvePromptContext(chatId)
   await addMessage(chatId, 'user', content)
 
   const userMessages = (await getMessages(chatId)).filter((message) => message.role === 'user')
   if (userMessages.length === 1) {
     await renameChat(chatId, deriveChatTitle(content))
   }
+
+  await compactBeforeGenerating(chatId)
+  const { systemPrompt, persona, contextWindowSize, generationParams, compaction } =
+    await resolvePromptContext(chatId)
 
   const history = (await getMessages(chatId)).filter((message) => message.role !== 'system')
   const messages = buildMessages(
@@ -272,7 +285,8 @@ export const sendUserMessage = async (
     persona,
     history.slice(0, -1),
     content,
-    contextWindowSize
+    contextWindowSize,
+    compaction
   )
 
   try {
@@ -298,7 +312,8 @@ const buildRegenerationPrompt = async (
   chatId: string,
   lastAssistantId: string
 ): Promise<{ messages: ChatMessage[]; generationParams: ReturnType<typeof resolveChatGenerationParams> }> => {
-  const { systemPrompt, character, persona, contextWindowSize, generationParams } =
+  await compactBeforeGenerating(chatId)
+  const { systemPrompt, character, persona, contextWindowSize, generationParams, compaction } =
     await resolvePromptContext(chatId)
   const messages = await getMessages(chatId)
   const assistantIndex = messages.findIndex((message) => message.id === lastAssistantId)
@@ -328,7 +343,8 @@ const buildRegenerationPrompt = async (
       persona,
       historyBefore.slice(0, -1),
       lastUser.content,
-      contextWindowSize
+      contextWindowSize,
+      compaction
     ),
     generationParams
   }
@@ -400,7 +416,8 @@ export const editLastUserMessage = async (
     return { message: updated, regenerated: false }
   }
 
-  const { systemPrompt, persona, contextWindowSize, generationParams } =
+  await compactBeforeGenerating(chatId)
+  const { systemPrompt, persona, contextWindowSize, generationParams, compaction } =
     await resolvePromptContext(chatId)
   const history = messagesAfterEdit.filter((message) => message.role !== 'system')
   const promptMessages = buildMessages(
@@ -409,7 +426,8 @@ export const editLastUserMessage = async (
     persona,
     history.slice(0, -1),
     trimmed,
-    contextWindowSize
+    contextWindowSize,
+    compaction
   )
 
   try {

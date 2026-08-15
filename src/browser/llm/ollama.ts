@@ -417,6 +417,66 @@ export const abortChat = (): void => {
   activeAbortController = null
 }
 
+/**
+ * Posts to `/api/chat`, asking for thinking to be off.
+ *
+ * `num_predict` is a budget for reasoning *and* reply together, so a
+ * thinking model can spend all of it reasoning and return an empty
+ * message — which is exactly what a character card plus a few turns of
+ * history produced at the default 512. A roleplay reply gains nothing from
+ * chain-of-thought. Some Ollama builds reject `think` for models that do
+ * not support it, so a rejection naming it retries once without the field:
+ * a message must not fail over an optimisation.
+ */
+const postChat = async (body: object, signal?: AbortSignal): Promise<Response> => {
+  const conn = await resolveConnection()
+  const post = (payload: object): Promise<Response> =>
+    httpFetch(conn)(`${conn.baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+      signal
+    })
+
+  const res = await post({ ...body, think: false })
+  if (res.ok) return res
+
+  const detail = await res.text().catch(() => '')
+  if (/think/i.test(detail)) {
+    const retried = await post(body)
+    if (retried.ok) return retried
+    const retryDetail = await retried.text().catch(() => retried.statusText)
+    throw new Error(`Ollama chat failed: ${retryDetail || retried.statusText}`)
+  }
+  throw new Error(`Ollama chat failed: ${detail || res.statusText}`)
+}
+
+/**
+ * One non-streaming completion, used for work the user is not watching —
+ * summarising a chat's older turns, for instance. Deliberately does not
+ * touch `activeAbortController`: that belongs to the reply the user *is*
+ * watching, and Stop must not be answered by cancelling background work
+ * instead (nor background work by cancelling the reply).
+ */
+export const complete = async (params: ChatParams, signal?: AbortSignal): Promise<string> => {
+  const res = await postChat(
+    {
+      model: params.modelId,
+      messages: params.messages,
+      stream: false,
+      ...(params.keepAlive !== undefined ? { keep_alive: params.keepAlive } : {}),
+      options: {
+        temperature: params.temperature,
+        top_p: params.topP,
+        num_predict: params.maxTokens
+      }
+    },
+    signal
+  )
+  const data = (await res.json()) as { message?: { content?: string } }
+  return data.message?.content?.trim() ?? ''
+}
+
 export interface ChatStreamCallbacks {
   /** Visible reply text (Ollama's `message.content`). */
   onToken: (token: string) => void
@@ -454,36 +514,9 @@ export const chat = async (
 
   console.log('[Ollama] POST /api/chat', body)
 
-  const conn = await resolveConnection()
-  const post = (payload: object): Promise<Response> =>
-    httpFetch(conn)(`${conn.baseUrl}/api/chat`, {
-      method: 'POST',
-      headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify(payload),
-      signal
-    })
-
-  // `num_predict` is a budget for reasoning *and* reply together, so a
-  // thinking model can spend all of it reasoning and return an empty
-  // message — which is exactly what a character card plus a few turns of
-  // history produced at the default 512. A roleplay reply gains nothing
-  // from chain-of-thought, so ask for it to be off.
-  let res = await post({ ...body, think: false })
-
-  // Some Ollama builds reject `think` for models that don't support it.
-  // A message must not fail over an optimisation, so retry without it.
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '')
-    if (/think/i.test(detail)) {
-      res = await post(body)
-    } else {
-      throw new Error(`Ollama chat failed: ${detail || res.statusText}`)
-    }
-  }
-
-  if (!res.ok || !res.body) {
-    const detail = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${detail || res.statusText}`)
+  const res = await postChat(body, signal)
+  if (!res.body) {
+    throw new Error('Ollama chat failed: response had no body')
   }
 
   const reader = res.body.getReader()

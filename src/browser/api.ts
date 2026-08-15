@@ -14,6 +14,7 @@ import * as modelNotes from './db/model-notes'
 import * as ollama from './llm/ollama'
 import type { OllamaProbeResult } from './llm/ollama'
 import * as chatGen from './chat-generation'
+import * as compaction from './chat-compaction'
 import * as deviceSync from './sync/engine'
 import { emit, subscribe } from './events'
 import { listChatsForCharacter, listChatsForPersona } from './db/chats'
@@ -276,6 +277,13 @@ export const createBrowserApi = (): OpenCharUiApi => {
       },
       editLastAssistantMessage: (chatId: string, content: string) =>
         chatGen.editLastAssistantMessage(chatId, content),
+      rebuildSummary: async (chatId: string) => {
+        const result = await compaction.rebuildChatSummary(chatId)
+        return result ? { folded: result.folded, keptVerbatim: result.keptVerbatim } : null
+      },
+      clearSummary: (chatId: string) => compaction.clearChatSummary(chatId),
+      saveSummary: (chatId: string, summary: string, summarizedThrough: string) =>
+        chats.saveChatSummary(chatId, summary, summarizedThrough),
       deleteMessage: (chatId: string, messageId: string) =>
         chats.deleteChatMessage(chatId, messageId),
       abort: async (chatId: string) => {
