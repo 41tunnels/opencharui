@@ -146,6 +146,68 @@ describe('relayFetch: real cross-process smoke test (Go relay + Go fakeagent)', 
 
     transport.close()
   }, 20000)
+
+  maybeIt('recovers on the same socket when a second agent displaces the first', async () => {
+    if (!env) return
+    const relayPort = await freePort()
+    const metricsPort = await freePort()
+
+    const relay = spawn(env.relayExe, [], {
+      env: {
+        ...process.env,
+        RELAY_ADDR: `:${relayPort}`,
+        RELAY_METRICS_ADDR: `:${metricsPort}`,
+        RELAY_ALLOWED_ORIGINS: '*'
+      }
+    })
+    children.push(relay)
+    await waitForPort(relayPort)
+    const relayUrl = `ws://127.0.0.1:${relayPort}`
+
+    const agentA = spawn(env.fakeagentExe, ['-relay', relayUrl])
+    children.push(agentA)
+    const aStderr = trackStderr(agentA)
+    const pairIdB64 = (await waitForMatch(aStderr.buffer, /pair_id=(\S+)/))[1]
+    const pskB64 = (await waitForMatch(aStderr.buffer, /psk=(\S+)/))[1]
+
+    // Count sockets: the whole point is that the browser recovers by
+    // handshaking again on the socket it already has.
+    const socketUrls: string[] = []
+    const transport = new RelayTransport(
+      { relayUrl, pairId: base64UrlDecode(pairIdB64), psk: await importPsk(base64UrlDecode(pskB64)) },
+      (url) => {
+        socketUrls.push(url)
+        return new WebSocket(url) as never
+      }
+    )
+    children.push({ kill: () => transport.close() } as unknown as ChildProcess)
+    const relayFetch = createRelayFetch(() => transport)
+
+    expect((await relayFetch('/api/tags', { method: 'GET' })).status).toBe(200)
+    await waitForMatch(aStderr.buffer, /stream \d+: GET \/api\/tags/)
+
+    // A second agent on the same pairing displaces the first, exactly as a
+    // redialling amallo does when the relay hasn't yet reaped the socket
+    // its previous process left behind (sleep/wake, Wi-Fi flip). The relay
+    // swaps the agent slot and sends this client nothing but peer_online.
+    const agentB = spawn(env.fakeagentExe, ['-relay', relayUrl, '-pair', pairIdB64, '-psk', pskB64])
+    children.push(agentB)
+    const bStderr = trackStderr(agentB)
+    await waitForMatch(aStderr.buffer, /recv:/, 10000)
+
+    // Before the session lifecycle landed in transport.ts, this request
+    // was sealed under the displaced session's keys and simply never
+    // arrived — the agent held it, waiting for a HELLO that never came.
+    const after = await relayFetch('/api/tags', { method: 'GET' })
+    expect(after.status).toBe(200)
+    expect(await after.text()).toContain('"echo":true')
+
+    // Served by the *new* agent, over the *original* socket.
+    await waitForMatch(bStderr.buffer, /stream \d+: GET \/api\/tags/, 10000)
+    expect(socketUrls).toHaveLength(1)
+
+    transport.close()
+  }, 30000)
 })
 
 function base64UrlDecode(s: string): Uint8Array {

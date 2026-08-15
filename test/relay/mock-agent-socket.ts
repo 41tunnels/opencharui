@@ -113,6 +113,28 @@ export class MockAgentSocket implements WebSocketLike {
     this.emitControl({ t: 'peer_offline' })
   }
 
+  /** Test control: simulate amallo redialling and *displacing* its own
+   * previous socket — what happens on sleep/wake or a Wi-Fi flip, when it
+   * reconnects before the relay's ping/pong noticed the old socket was
+   * dead. The relay swaps the agent slot underneath and sends the client a
+   * bare `peer_online`: no `peer_offline`, no close. This side keeps the
+   * socket and starts a completely new session on it (spec §4.6), so every
+   * key from the previous one is gone.
+   *
+   * Ciphertext arriving in the window before the new session is installed
+   * is dropped here rather than held; the real agent buffers it, and no
+   * test below sends into that window. */
+  simulateAgentSwap(): void {
+    this.agentEph = null
+    this.myHello = null
+    this.clientHello = null
+    this.sealer = null
+    this.opener = null
+    this.reqBuffers.clear()
+    this.cancelledStreams.clear()
+    this.emitControl({ t: 'peer_online' })
+  }
+
   private async handleClientMessage(bytes: Uint8Array): Promise<void> {
     const { header, payload } = parseOuter(bytes)
 
