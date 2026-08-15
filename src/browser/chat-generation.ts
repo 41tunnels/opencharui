@@ -25,6 +25,22 @@ type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
 
 export interface StreamCallbacks {
   onChunk: (delta: string) => void
+  /** Reasoning deltas from a thinking model. Shown as progress, never
+   * persisted and never fed back as history — see `ChatThinkingEvent`. */
+  onThinking?: (delta: string) => void
+}
+
+/**
+ * Thrown when a generation ends with nothing to show. A thinking model
+ * that spends its whole budget reasoning is the usual cause, and the
+ * previous behaviour — persisting the empty string — left a blank bubble
+ * in the chat that then went back to the model as an empty assistant turn.
+ */
+export class EmptyGenerationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'EmptyGenerationError'
+  }
 }
 
 export class ChatCancelledError extends Error {
@@ -117,6 +133,7 @@ const streamAssistantReply = async (
   activeGenerations.set(chatId, controller)
 
   let assistantContent = ''
+  let sawThinking = false
   try {
     await assertChatExists(chatId)
     const { modelId } = await resolveModel(chatId)
@@ -131,13 +148,23 @@ const streamAssistantReply = async (
           maxTokens: generationParams.maxTokens,
           keepAlive: toOllamaKeepAlive(generationParams.keepAliveMinutes)
         },
-        (delta) => {
-          if (controller.signal.aborted) {
-            ollama.abortChat()
-            return
+        {
+          onToken: (delta) => {
+            if (controller.signal.aborted) {
+              ollama.abortChat()
+              return
+            }
+            assistantContent += delta
+            callbacks.onChunk(delta)
+          },
+          onThinking: (delta) => {
+            if (controller.signal.aborted) {
+              ollama.abortChat()
+              return
+            }
+            sawThinking = true
+            callbacks.onThinking?.(delta)
           }
-          assistantContent += delta
-          callbacks.onChunk(delta)
         },
         controller.signal
       )
@@ -160,6 +187,14 @@ const streamAssistantReply = async (
 
     if (controller.signal.aborted || !(await getChat(chatId))) {
       throw new ChatCancelledError()
+    }
+
+    if (!assistantContent.trim()) {
+      throw new EmptyGenerationError(
+        sawThinking
+          ? 'The model finished reasoning without writing a reply. Raise max tokens, or try again.'
+          : 'The model returned an empty reply. Try again.'
+      )
     }
 
     return assistantContent
@@ -222,7 +257,12 @@ export const sendUserMessage = async (
   )
 
   try {
-    const assistantContent = await streamAssistantReply(chatId, messages, generationParams, callbacks)
+    const assistantContent = await streamAssistantReply(
+      chatId,
+      messages,
+      generationParams,
+      callbacks
+    )
     await assertChatExists(chatId)
     const assistantMessage = await addMessage(chatId, 'assistant', assistantContent)
     return { messageId: assistantMessage.id }

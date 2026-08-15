@@ -34,6 +34,7 @@ const closeSidebarIfMobile = () => {
 }
 
 let unsubChunk: (() => void) | undefined
+let unsubThinking: (() => void) | undefined
 let unsubDone: (() => void) | undefined
 let unsubError: (() => void) | undefined
 let unsubCancelled: (() => void) | undefined
@@ -58,6 +59,9 @@ onMounted(() => {
   unsubChunk = window.api.chat.onChunk(({ chatId, delta }) => {
     if (store.activeChat?.id === chatId) store.appendStreaming(delta)
   })
+  unsubThinking = window.api.chat.onThinking(({ chatId, delta }) => {
+    if (store.activeChat?.id === chatId) store.appendThinking(delta)
+  })
   unsubDone = window.api.chat.onDone(async ({ chatId }) => {
     if (store.activeChat?.id === chatId) {
       await store.finishGeneration(chatId)
@@ -78,6 +82,7 @@ onMounted(() => {
 onUnmounted(() => {
   mobileMq?.removeEventListener('change', onMobileMqChange)
   unsubChunk?.()
+  unsubThinking?.()
   unsubDone?.()
   unsubError?.()
   unsubCancelled?.()

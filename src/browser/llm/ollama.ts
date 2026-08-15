@@ -352,6 +352,18 @@ export const deleteModel = async (name: string): Promise<void> => {
   clearTagsCache()
 }
 
+type ChatStreamChunk = {
+  message?: { content?: string; thinking?: string }
+  done?: boolean
+}
+
+const emitChunk = (chunk: ChatStreamChunk, callbacks: ChatStreamCallbacks): void => {
+  const thinking = chunk.message?.thinking ?? ''
+  if (thinking) callbacks.onThinking?.(thinking)
+  const delta = chunk.message?.content ?? ''
+  if (delta) callbacks.onToken(delta)
+}
+
 let activeAbortController: AbortController | null = null
 
 export const abortChat = (): void => {
@@ -359,9 +371,22 @@ export const abortChat = (): void => {
   activeAbortController = null
 }
 
+export interface ChatStreamCallbacks {
+  /** Visible reply text (Ollama's `message.content`). */
+  onToken: (token: string) => void
+  /**
+   * Reasoning text (Ollama's `message.thinking`), which a thinking model
+   * streams *before* any content — often for many seconds, with
+   * `content` empty the whole time. Reading only `content` made those
+   * models look like they had hung, and a generation that stopped before
+   * the reasoning finished produced a silently empty reply.
+   */
+  onThinking?: (delta: string) => void
+}
+
 export const chat = async (
   params: ChatParams,
-  onToken: (token: string) => void,
+  callbacks: ChatStreamCallbacks,
   externalSignal?: AbortSignal
 ): Promise<void> => {
   activeAbortController = new AbortController()
@@ -384,16 +409,35 @@ export const chat = async (
   console.log('[Ollama] POST /api/chat', body)
 
   const conn = await resolveConnection()
-  const res = await httpFetch(conn)(`${conn.baseUrl}/api/chat`, {
-    method: 'POST',
-    headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
-    body: JSON.stringify(body),
-    signal
-  })
+  const post = (payload: object): Promise<Response> =>
+    httpFetch(conn)(`${conn.baseUrl}/api/chat`, {
+      method: 'POST',
+      headers: buildHeaders(conn, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(payload),
+      signal
+    })
+
+  // `num_predict` is a budget for reasoning *and* reply together, so a
+  // thinking model can spend all of it reasoning and return an empty
+  // message — which is exactly what a character card plus a few turns of
+  // history produced at the default 512. A roleplay reply gains nothing
+  // from chain-of-thought, so ask for it to be off.
+  let res = await post({ ...body, think: false })
+
+  // Some Ollama builds reject `think` for models that don't support it.
+  // A message must not fail over an optimisation, so retry without it.
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    if (/think/i.test(detail)) {
+      res = await post(body)
+    } else {
+      throw new Error(`Ollama chat failed: ${detail || res.statusText}`)
+    }
+  }
 
   if (!res.ok || !res.body) {
-    const body = await res.text().catch(() => res.statusText)
-    throw new Error(`Ollama chat failed: ${body || res.statusText}`)
+    const detail = await res.text().catch(() => res.statusText)
+    throw new Error(`Ollama chat failed: ${detail || res.statusText}`)
   }
 
   const reader = res.body.getReader()
@@ -411,16 +455,12 @@ export const chat = async (
 
       for (const line of lines) {
         if (!line.trim()) continue
-        const chunk = JSON.parse(line) as { message?: { content?: string }; done?: boolean }
-        const delta = chunk.message?.content ?? ''
-        if (delta) onToken(delta)
+        emitChunk(JSON.parse(line) as ChatStreamChunk, callbacks)
       }
     }
 
     if (buffer.trim()) {
-      const chunk = JSON.parse(buffer) as { message?: { content?: string } }
-      const delta = chunk.message?.content ?? ''
-      if (delta) onToken(delta)
+      emitChunk(JSON.parse(buffer) as ChatStreamChunk, callbacks)
     }
   } finally {
     activeAbortController = null

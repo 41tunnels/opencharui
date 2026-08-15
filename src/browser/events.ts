@@ -2,11 +2,13 @@ import type {
   ChatCancelledEvent,
   ChatChunkEvent,
   ChatDoneEvent,
-  ChatErrorEvent
+  ChatErrorEvent,
+  ChatThinkingEvent
 } from '@shared/types'
 
 type ChatEventMap = {
   'chat:chunk': ChatChunkEvent
+  'chat:thinking': ChatThinkingEvent
   'chat:done': ChatDoneEvent
   'chat:error': ChatErrorEvent
   'chat:cancelled': ChatCancelledEvent

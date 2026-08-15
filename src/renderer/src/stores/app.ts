@@ -29,6 +29,10 @@ export const useAppStore = defineStore('app', () => {
   const models = ref<ModelInfo[]>([])
   const selectedModelId = ref<string | null>(null)
   const streamingText = ref('')
+  /** Reasoning streamed by a thinking model before the reply starts. Kept
+   * only to show that something is happening — never persisted, and
+   * dropped the moment real content arrives. */
+  const thinkingText = ref('')
   const isGenerating = ref(false)
   const error = ref<string | null>(null)
   const uiState = ref<AppUiState>({ ...DEFAULT_UI_STATE })
@@ -136,6 +140,7 @@ export const useAppStore = defineStore('app', () => {
       selectedModelId.value = activeChat.value.modelId
     }
     streamingText.value = ''
+    thinkingText.value = ''
     isGenerating.value = false
     error.value = null
   }
@@ -153,6 +158,7 @@ export const useAppStore = defineStore('app', () => {
     await refreshChats()
     activeChat.value = chat
     streamingText.value = ''
+    thinkingText.value = ''
     error.value = null
     isGenerating.value = false
     return chat
@@ -175,6 +181,7 @@ export const useAppStore = defineStore('app', () => {
     }
     isGenerating.value = false
     streamingText.value = ''
+    thinkingText.value = ''
   }
 
   const handleChatDeleted = (chatId: string) => {
@@ -183,6 +190,7 @@ export const useAppStore = defineStore('app', () => {
     }
     isGenerating.value = false
     streamingText.value = ''
+    thinkingText.value = ''
     error.value = null
   }
 
@@ -191,6 +199,7 @@ export const useAppStore = defineStore('app', () => {
 
     isGenerating.value = false
     streamingText.value = ''
+    thinkingText.value = ''
 
     try {
       activeChat.value = await window.api.chats.get(chatId)
@@ -225,6 +234,15 @@ export const useAppStore = defineStore('app', () => {
 
   const appendStreaming = (delta: string) => {
     streamingText.value += delta
+    thinkingText.value = ''
+  }
+
+  const appendThinking = (delta: string) => {
+    thinkingText.value += delta
+  }
+
+  const clearThinking = () => {
+    thinkingText.value = ''
   }
 
   const commitStreaming = (): Message | null => {
@@ -238,6 +256,7 @@ export const useAppStore = defineStore('app', () => {
     }
     activeChat.value.messages.push(message)
     streamingText.value = ''
+    thinkingText.value = ''
     return message
   }
 
@@ -262,6 +281,7 @@ export const useAppStore = defineStore('app', () => {
     selectedModelId,
     selectedModel,
     streamingText,
+    thinkingText,
     isGenerating,
     error,
     uiState,
@@ -285,6 +305,8 @@ export const useAppStore = defineStore('app', () => {
     handleChatDeleted,
     handleGenerationCancelled,
     appendStreaming,
+    appendThinking,
+    clearThinking,
     commitStreaming,
     addUserMessage
   }

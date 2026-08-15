@@ -38,6 +38,11 @@ const streamCallbacks = (chatId: string) => {
       void chats.getChat(chatId).then((chat) => {
         if (chat) emit('chat:chunk', { chatId, delta })
       })
+    },
+    onThinking: (delta: string) => {
+      void chats.getChat(chatId).then((chat) => {
+        if (chat) emit('chat:thinking', { chatId, delta })
+      })
     }
   }
 }
@@ -253,11 +258,7 @@ export const createBrowserApi = (): OpenCharUiApi => {
         chatGen.selectMessageVariation(chatId, messageId, direction),
       editLastUserMessage: async (chatId: string, content: string) => {
         try {
-          const result = await chatGen.editLastUserMessage(
-            chatId,
-            content,
-            streamCallbacks(chatId)
-          )
+          const result = await chatGen.editLastUserMessage(chatId, content, streamCallbacks(chatId))
           if (result.regenerated && result.messageId) {
             emit('chat:done', { chatId, messageId: result.messageId })
           }
@@ -278,6 +279,7 @@ export const createBrowserApi = (): OpenCharUiApi => {
         chatGen.abortGeneration(chatId)
       },
       onChunk: (callback) => subscribe('chat:chunk', callback),
+      onThinking: (callback) => subscribe('chat:thinking', callback),
       onDone: (callback) => subscribe('chat:done', callback),
       onError: (callback) => subscribe('chat:error', callback),
       onCancelled: (callback) => subscribe('chat:cancelled', callback)

@@ -91,16 +91,13 @@ export interface OpenCharUiApi {
     send(chatId: string, content: string): Promise<void>
     generateOpening(chatId: string): Promise<void>
     regenerateLast(chatId: string): Promise<void>
-    setVariation(
-      chatId: string,
-      messageId: string,
-      direction: 'prev' | 'next'
-    ): Promise<Message>
+    setVariation(chatId: string, messageId: string, direction: 'prev' | 'next'): Promise<Message>
     editLastUserMessage(chatId: string, content: string): Promise<Message>
     editLastAssistantMessage(chatId: string, content: string): Promise<Message>
     deleteMessage(chatId: string, messageId: string): Promise<void>
     abort(chatId: string): Promise<void>
     onChunk(callback: (event: { chatId: string; delta: string }) => void): () => void
+    onThinking(callback: (event: { chatId: string; delta: string }) => void): () => void
     onDone(callback: (event: { chatId: string; messageId: string }) => void): () => void
     onError(callback: (event: { chatId: string; error: string }) => void): () => void
     onCancelled(callback: (event: { chatId: string }) => void): () => void

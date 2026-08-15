@@ -195,6 +195,17 @@ export interface ChatChunkEvent {
   delta: string
 }
 
+/**
+ * Reasoning deltas from a thinking model — Ollama streams these as
+ * `message.thinking`, separately from `message.content`, and they are not
+ * part of the reply. Carried so the UI can show that generation is under
+ * way; never persisted, and never sent back as history.
+ */
+export interface ChatThinkingEvent {
+  chatId: string
+  delta: string
+}
+
 export interface ChatDoneEvent {
   chatId: string
   messageId: string

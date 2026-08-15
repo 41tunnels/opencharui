@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, onUnmounted, ref, watch, nextTick } from 'vue'
 import type { Character, Message, Persona } from '@shared/types'
-import { computeContextUsage, formatContextUsageLabel, formatTokenSpeed, estimateTokenCount } from '@shared/context-usage'
+import {
+  computeContextUsage,
+  formatContextUsageLabel,
+  formatTokenSpeed,
+  estimateTokenCount
+} from '@shared/context-usage'
 import FormattedMessageText from '@renderer/components/FormattedMessageText.vue'
 
 const props = defineProps<{
@@ -15,6 +20,7 @@ const props = defineProps<{
   contextWindowSize: number
   modelContextTokens: number
   streamingText: string
+  thinkingText: string
   isGenerating: boolean
   error: string | null
 }>()
@@ -131,6 +137,32 @@ watch(
     }
   }
 )
+
+// A thinking model streams reasoning for seconds before any reply text, so
+// this is the only sign of life until then. Elapsed time is worth showing:
+// without it a long reasoning pass is indistinguishable from a stall.
+const isThinking = computed(() => props.isGenerating && props.thinkingText.length > 0)
+
+const thinkingStartedAt = ref<number | null>(null)
+const thinkingElapsed = ref(0)
+let thinkingTimer: ReturnType<typeof setInterval> | undefined
+
+watch(isThinking, (thinking) => {
+  clearInterval(thinkingTimer)
+  if (!thinking) {
+    thinkingStartedAt.value = null
+    thinkingElapsed.value = 0
+    return
+  }
+  thinkingStartedAt.value = Date.now()
+  thinkingElapsed.value = 0
+  thinkingTimer = setInterval(() => {
+    if (thinkingStartedAt.value === null) return
+    thinkingElapsed.value = Math.floor((Date.now() - thinkingStartedAt.value) / 1000)
+  }, 1000)
+})
+
+onUnmounted(() => clearInterval(thinkingTimer))
 
 watch(
   () => props.chatId,
@@ -564,9 +596,30 @@ const requestDelete = (message: Message) => {
           </div>
         </div>
 
+        <div
+          v-if="isThinking && !streamingText && !isRegeneratingLastAssistant"
+          class="flex justify-start"
+        >
+          <div
+            class="chat-bubble-assistant max-w-[80%] rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100"
+          >
+            <p v-if="characterName" class="mb-1 text-xs font-medium ui-text-muted">
+              {{ characterName }}
+            </p>
+            <p class="flex items-center gap-2 text-sm ui-text-muted">
+              <span class="animate-pulse">Thinking</span>
+              <span v-if="thinkingElapsed > 0" class="tabular-nums">{{ thinkingElapsed }}s</span>
+            </p>
+          </div>
+        </div>
+
         <div v-if="streamingText && !isRegeneratingLastAssistant" class="flex justify-start">
-          <div class="chat-bubble-assistant max-w-[80%] rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100">
-            <p v-if="characterName" class="mb-1 text-xs font-medium ui-text-muted">{{ characterName }}</p>
+          <div
+            class="chat-bubble-assistant max-w-[80%] rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100"
+          >
+            <p v-if="characterName" class="mb-1 text-xs font-medium ui-text-muted">
+              {{ characterName }}
+            </p>
             <FormattedMessageText :content="streamingText" /><span class="animate-pulse">▍</span>
           </div>
         </div>

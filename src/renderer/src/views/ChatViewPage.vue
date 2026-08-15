@@ -133,6 +133,7 @@ const send = async (content: string) => {
   store.addUserMessage(content)
   store.isGenerating = true
   store.streamingText = ''
+  store.thinkingText = ''
   try {
     await window.api.chat.send(store.activeChat.id, content)
     await store.finishGeneration(store.activeChat.id)
@@ -152,6 +153,7 @@ const abort = () => {
 const runRegenerateLast = async (): Promise<boolean> => {
   if (!store.activeChat) return false
   store.streamingText = ''
+  store.thinkingText = ''
   try {
     await window.api.chat.regenerateLast(store.activeChat.id)
     await store.finishGeneration(store.activeChat.id)
@@ -181,6 +183,7 @@ const regenerateLastMultiple = async (count: number) => {
     if (i > 0) {
       store.isGenerating = true
       store.streamingText = ''
+      store.thinkingText = ''
     }
     const ok = await runRegenerateLast()
     if (!ok) break
@@ -236,6 +239,7 @@ const editLastUserMessage = async (content: string) => {
   if (shouldRegenerate) {
     store.isGenerating = true
     store.streamingText = ''
+    store.thinkingText = ''
   }
 
   try {
@@ -447,6 +451,7 @@ const onTitleBlur = () => {
       :context-window-size="resolveChatContextWindowSize(store.activeChat)"
       :model-context-tokens="modelContextTokens"
       :streaming-text="store.streamingText"
+      :thinking-text="store.thinkingText"
       :is-generating="store.isGenerating"
       :error="store.error"
       @send="send"
