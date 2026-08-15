@@ -115,7 +115,16 @@ export interface ModelInfo {
   sizeBytes?: number
 }
 
-export type RelayState = 'connecting' | 'waiting' | 'online' | 'offline' | 'closed'
+/** `displaced`: another tab or device took this pairing over. The relay
+ * keeps one client per pair, so this side stands down instead of taking it
+ * straight back (spec §8) and waits for the user to reclaim it. */
+export type RelayState =
+  | 'connecting'
+  | 'waiting'
+  | 'online'
+  | 'offline'
+  | 'displaced'
+  | 'closed'
 
 export interface LLMStatus {
   ollamaAvailable: boolean

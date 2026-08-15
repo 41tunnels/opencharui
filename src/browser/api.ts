@@ -17,7 +17,7 @@ import * as chatGen from './chat-generation'
 import * as deviceSync from './sync/engine'
 import { emit, subscribe } from './events'
 import { listChatsForCharacter, listChatsForPersona } from './db/chats'
-import { onRelayStateChange, relayState } from './relay'
+import { onRelayStateChange, reconnectRelay, relayState } from './relay'
 import * as pairing from './relay/pairing'
 import { getSettings } from './db/settings'
 
@@ -170,6 +170,9 @@ export const createBrowserApi = (): OpenCharUiApi => {
       },
       unpair: async () => {
         await pairing.unpair()
+      },
+      reconnect: async () => {
+        reconnectRelay()
       },
       onStatusChanged: (callback) => onRelayStateChange(callback)
     },

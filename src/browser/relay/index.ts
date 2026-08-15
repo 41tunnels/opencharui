@@ -32,6 +32,14 @@ export function isRelayConfigured(): boolean {
   return transport !== null
 }
 
+/** Reclaims a pairing another client took over (spec §8's `displaced`).
+ * Only the user can decide which tab or device should win, so nothing
+ * calls this automatically. */
+export function reconnectRelay(): void {
+  transport?.reconnect()
+  if (transport) notifyAll(transport.getState())
+}
+
 export function disconnectRelay(): void {
   transport?.close()
   unsubscribeFromTransport?.()

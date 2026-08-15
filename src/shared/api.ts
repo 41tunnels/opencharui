@@ -76,6 +76,8 @@ export interface OpenCharUiApi {
      * and connects — replacing any previous pairing. */
     pair(code: string): Promise<void>
     unpair(): Promise<void>
+    /** Reclaim a pairing that another tab or device took over. */
+    reconnect(): Promise<void>
     onStatusChanged(callback: (state: RelayState | null) => void): () => void
   }
   sync: {

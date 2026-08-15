@@ -155,3 +155,59 @@ describe('session lifecycle within one connection', () => {
   // driving the mock's internals frame by frame; smoke.test.ts's
   // cross-process case produces it from real timing instead.
 })
+
+describe('another client takes the pairing (spec §8, close 4409)', () => {
+  it('stands down instead of taking it straight back', async () => {
+    const pairing = await makePairing()
+    const sockets: MockAgentSocket[] = []
+    const states: RelayState[] = []
+    const transport = new RelayTransport(pairing, () => {
+      const socket = new MockAgentSocket(pairing.psk, pairing.pairId, okHandler('{}'))
+      sockets.push(socket)
+      return socket
+    })
+    transport.onStateChange((s) => states.push(s))
+    await waitForNextState(transport, 'online')
+
+    sockets[0].simulateDisplaced()
+    await waitForNextState(transport, 'displaced')
+
+    // The relay hands the pairing to one client at a time. Reconnecting
+    // here would take it back from whoever just got it, and their client
+    // would take it back from us — about once a second, forever, with
+    // neither able to hold a session long enough to finish a reply.
+    await new Promise((r) => setTimeout(r, 300))
+    expect(sockets).toHaveLength(1)
+    expect(transport.getState()).toBe('displaced')
+
+    // And a request fails fast rather than waiting for a connection that
+    // is never coming back on its own.
+    const relayFetch = createRelayFetch(() => transport)
+    await expect(relayFetch('/api/tags', { method: 'GET' })).rejects.toThrow(/another device or tab/)
+
+    transport.close()
+  })
+
+  it('reclaims the pairing when the user asks for it', async () => {
+    const pairing = await makePairing()
+    const sockets: MockAgentSocket[] = []
+    const transport = new RelayTransport(pairing, () => {
+      const socket = new MockAgentSocket(pairing.psk, pairing.pairId, okHandler('{"models":[]}'))
+      sockets.push(socket)
+      return socket
+    })
+    await waitForNextState(transport, 'online')
+    sockets[0].simulateDisplaced()
+    await waitForNextState(transport, 'displaced')
+
+    const backOnline = waitForNextState(transport, 'online')
+    transport.reconnect()
+    await backOnline
+
+    const relayFetch = createRelayFetch(() => transport)
+    expect((await fetchFully(relayFetch, '/api/tags')).status).toBe(200)
+    expect(sockets).toHaveLength(2)
+
+    transport.close()
+  })
+})

@@ -40,9 +40,17 @@ export interface PairingInfo {
   psk: CryptoKey
 }
 
-export type RelayState = 'connecting' | 'waiting' | 'online' | 'offline' | 'closed'
+export type RelayState = 'connecting' | 'waiting' | 'online' | 'offline' | 'displaced' | 'closed'
 
 const WS_OPEN = 1
+
+/** Spec §8: another connection for the same role took this slot. "do NOT
+ * auto-reconnect, surface 'opened on another device'" — because the relay
+ * keeps exactly one client per pair, and a displaced client that
+ * reconnects immediately just displaces the other one straight back. Two
+ * tabs then trade the slot about once a second and neither can hold a
+ * session long enough to finish a reply. */
+const CLOSE_DISPLACED = 4409
 
 function defaultSocketFactory(url: string): WebSocketLike {
   return new WebSocket(url) as unknown as WebSocketLike
@@ -176,6 +184,11 @@ export class RelayTransport {
   private stateListeners = new Set<(s: RelayState) => void>()
   private closing = false
   private backoffMs = BACKOFF_BASE_MS
+  /** Close code of the connection that just ended, so the reconnect loop
+   * can tell "the network dropped" from "someone else took over". */
+  private lastCloseCode: number | null = null
+  /** Set once another client displaced this one; cleared by reconnect(). */
+  private displaced = false
   /** Bumped whenever a session is retired, so a frame sealed under the
    * old one can be recognised (and dropped) before it reaches the wire. */
   private sessionEpoch = 0
@@ -257,6 +270,11 @@ export class RelayTransport {
   async waitUntilOnline(signal?: AbortSignal): Promise<void> {
     if (this.state === 'online') return
     if (this.state === 'closed') throw new Error('relay: transport closed')
+    // Waiting would never resolve: nothing reconnects until the user
+    // reclaims the pairing.
+    if (this.displaced) {
+      throw new Error('relay: this pairing is in use on another device or tab')
+    }
     if (signal?.aborted) throw new DOMException('The operation was aborted', 'AbortError')
 
     await new Promise<void>((resolve, reject) => {
@@ -275,10 +293,28 @@ export class RelayTransport {
         } else if (s === 'closed') {
           cleanup()
           reject(new Error('relay: transport closed'))
+        } else if (s === 'displaced') {
+          cleanup()
+          reject(new Error('relay: this pairing is in use on another device or tab'))
         }
       })
       signal?.addEventListener('abort', onAbort, { once: true })
     })
+  }
+
+  /** Reclaims a pairing that another client took over. Only meaningful
+   * after a `displaced` close, which is the one case where this side stops
+   * reconnecting on its own. */
+  reconnect(): void {
+    if (this.closing || !this.displaced) return
+    this.displaced = false
+    this.lastCloseCode = null
+    this.backoffMs = BACKOFF_BASE_MS
+    void this.runLoop()
+  }
+
+  isDisplaced(): boolean {
+    return this.displaced
   }
 
   close(): void {
@@ -291,6 +327,7 @@ export class RelayTransport {
     while (!this.closing) {
       this.setState('connecting')
       const attemptStart = Date.now()
+      this.lastCloseCode = null
       try {
         await this.connectOnce()
         this.backoffMs = BACKOFF_BASE_MS
@@ -302,6 +339,17 @@ export class RelayTransport {
       this.opener = null
       this.listeners.clear()
       if (this.closing) return
+
+      // Another client took the pairing. Retrying would take it back from
+      // them, and their client would take it back from us, forever — so
+      // stand down and let the user decide which one wins (`reconnect()`).
+      if (this.lastCloseCode === CLOSE_DISPLACED) {
+        this.displaced = true
+        this.setState('displaced')
+        for (const cb of [...this.peerOfflineListeners]) cb()
+        return
+      }
+
       this.setState('offline')
       // A connection that ran fine for a while and then dropped is not
       // evidence the relay (or network) is in trouble, however it ended.
@@ -333,7 +381,10 @@ export class RelayTransport {
         (err) => queue.end(err)
       )
     }
-    const onClose = () => queue.end()
+    const onClose = (ev: Event) => {
+      this.lastCloseCode = (ev as CloseEvent).code ?? null
+      queue.end()
+    }
     const onError = () => queue.end(new Error('relay: socket error'))
     ws.addEventListener('message', onMessage)
     ws.addEventListener('close', onClose)

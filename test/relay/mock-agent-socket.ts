@@ -103,6 +103,16 @@ export class MockAgentSocket implements WebSocketLike {
     queueMicrotask(() => this.dispatch('close', new Event('close')))
   }
 
+  /** Test control: the relay closing this client because another one took
+   * the pairing (spec §8, close code 4409). */
+  simulateDisplaced(): void {
+    this.closed = true
+    this.readyState = WS_CLOSED
+    // Node has no CloseEvent, and the transport only reads `.code`.
+    const event = Object.assign(new Event('close'), { code: 4409, reason: 'displaced' })
+    queueMicrotask(() => this.dispatch('close', event))
+  }
+
   send(data: ArrayBufferLike | ArrayBufferView): void {
     const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBufferLike)
     void this.handleClientMessage(bytes)

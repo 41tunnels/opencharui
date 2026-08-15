@@ -8,10 +8,22 @@ const router = useRouter()
 const store = useAppStore()
 
 const providerLabel = computed(() => (store.llmStatus.usingAmallo ? 'Amallo' : 'Ollama'))
-const connectionTitle = computed(
-  () =>
-    `${providerLabel.value} ${store.llmStatus.ollamaAvailable ? 'connected' : 'not connected'}`
-)
+
+// The relay keeps one client per pairing, so opening the app in a second
+// tab or on a phone takes this one's place. Rather than grabbing it
+// straight back — which just starts a tug of war neither side wins — the
+// displaced side says so and waits to be told to take over.
+const isDisplaced = computed(() => store.llmStatus.relayState === 'displaced')
+
+const connectionTitle = computed(() => {
+  if (isDisplaced.value) return `${providerLabel.value} is in use in another tab or device`
+  return `${providerLabel.value} ${store.llmStatus.ollamaAvailable ? 'connected' : 'not connected'}`
+})
+
+const reclaimRelay = async () => {
+  await window.api.relay.reconnect()
+  await store.refreshLlm({ force: true })
+}
 
 const GITHUB_REPO_URL = 'https://github.com/OpenCharUI/web'
 
@@ -79,9 +91,21 @@ const newChat = async () => {
     <div class="flex items-center gap-2 text-sm" :title="connectionTitle">
       <span
         class="inline-block h-2 w-2 rounded-full"
-        :class="store.llmStatus.ollamaAvailable ? 'bg-green-500' : 'bg-red-500'"
+        :class="
+          isDisplaced
+            ? 'bg-amber-500'
+            : store.llmStatus.ollamaAvailable
+              ? 'bg-green-500'
+              : 'bg-red-500'
+        "
       />
-      <span class="ui-text-muted hidden md:inline">
+      <template v-if="isDisplaced">
+        <span class="ui-text-muted hidden md:inline">Open in another tab</span>
+        <button type="button" class="ui-btn-ghost px-2 py-0.5 text-xs" @click="reclaimRelay">
+          Use here
+        </button>
+      </template>
+      <span v-else class="ui-text-muted hidden md:inline">
         {{ providerLabel }} {{ store.llmStatus.ollamaAvailable ? 'connected' : 'not connected' }}
       </span>
     </div>
