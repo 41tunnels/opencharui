@@ -1,14 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { RelayPairingSummary, RelayState } from '@shared/types'
-
-interface DetectedBarcode {
-  rawValue: string
-}
-interface BarcodeDetectorLike {
-  detect(source: CanvasImageSource): Promise<DetectedBarcode[]>
-}
-type BarcodeDetectorCtor = new (options: { formats: string[] }) => BarcodeDetectorLike
+import { useQrScanner } from '@renderer/composables/useQrScanner'
 
 const pairings = ref<RelayPairingSummary[]>([])
 const activeId = ref('')
@@ -24,24 +17,17 @@ const switching = ref<string | null>(null)
 const renamingId = ref<string | null>(null)
 const renameInput = ref('')
 
-const scanning = ref(false)
-const scanError = ref<string | null>(null)
-const videoEl = ref<HTMLVideoElement | null>(null)
-const canvasEl = ref<HTMLCanvasElement | null>(null)
-
-let stream: MediaStream | null = null
-let rafId: number | null = null
-let detector: BarcodeDetectorLike | null = null
-let decodeQr:
-  ((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null =
-  null
 let unsubscribeStatus: (() => void) | null = null
-let detectorStartedAt = 0
-// Some platforms (notably Windows/Linux Chromium) expose BarcodeDetector but
-// its detection backend never actually finds anything — it just silently
-// returns no results forever. Give it a window to prove itself, then fall
-// back to the pure-JS decoder that's known to work everywhere.
-const DETECTOR_TIMEOUT_MS = 3000
+
+const {
+  scanning,
+  error: scanError,
+  decoderLabel,
+  videoEl,
+  canvasEl,
+  start: startScan,
+  stop: stopScan
+} = useQrScanner((value) => applyCode(value))
 
 const stateLabel = computed(() => {
   switch (state.value) {
@@ -81,9 +67,9 @@ const refreshStatus = async (): Promise<void> => {
   state.value = status.state
 }
 
-const applyCode = async (raw: string): Promise<void> => {
+const applyCode = async (raw: string): Promise<boolean> => {
   const code = raw.trim()
-  if (!code) return
+  if (!code) return false
   pairError.value = null
   pairing.value = true
   try {
@@ -93,8 +79,10 @@ const applyCode = async (raw: string): Promise<void> => {
     stopScan()
     showAddForm.value = false
     await refreshStatus()
+    return true
   } catch (err) {
     pairError.value = err instanceof Error ? err.message : 'Invalid pairing code'
+    return false
   } finally {
     pairing.value = false
   }
@@ -140,86 +128,6 @@ const confirmRename = async (id: string): Promise<void> => {
   if (!label) return
   await window.api.relay.rename(id, label)
   await refreshStatus()
-}
-
-const scanTick = async (): Promise<void> => {
-  if (!scanning.value) return
-  const video = videoEl.value
-  const canvas = canvasEl.value
-
-  if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-    if (detector) {
-      try {
-        const codes = await detector.detect(video)
-        const value = codes[0]?.rawValue
-        if (value) {
-          await applyCode(value)
-          return
-        }
-      } catch {
-        // Transient per-frame detection failures are expected — keep scanning.
-      }
-      if (Date.now() - detectorStartedAt > DETECTOR_TIMEOUT_MS) {
-        detector = null
-        decodeQr = (await import('jsqr')).default
-      }
-    } else if (decodeQr) {
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-        const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const result = decodeQr(image.data, image.width, image.height)
-        if (result?.data) {
-          await applyCode(result.data)
-          return
-        }
-      }
-    }
-  }
-
-  if (scanning.value) rafId = requestAnimationFrame(() => void scanTick())
-}
-
-const stopScan = (): void => {
-  scanning.value = false
-  if (rafId !== null) cancelAnimationFrame(rafId)
-  rafId = null
-  stream?.getTracks().forEach((track) => track.stop())
-  stream = null
-  detector = null
-  decodeQr = null
-}
-
-const startScan = async (): Promise<void> => {
-  scanError.value = null
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-  } catch {
-    scanError.value = 'Camera access was denied or no camera is available.'
-    return
-  }
-
-  scanning.value = true
-  await nextTick()
-  if (videoEl.value) {
-    videoEl.value.srcObject = stream
-    await videoEl.value.play().catch(() => {})
-  }
-
-  const BarcodeDetectorGlobal = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
-    .BarcodeDetector
-  if (BarcodeDetectorGlobal) {
-    detector = new BarcodeDetectorGlobal({ formats: ['qr_code'] })
-    detectorStartedAt = Date.now()
-  } else {
-    // Dynamic import: ~30 KB kept out of the main bundle for the browsers
-    // (Chrome/Edge/Android) that have BarcodeDetector and never need it.
-    decodeQr = (await import('jsqr')).default
-  }
-
-  rafId = requestAnimationFrame(() => void scanTick())
 }
 
 const openAddForm = (): void => {
@@ -360,6 +268,7 @@ onBeforeUnmount(() => {
               playsinline
             />
             <canvas ref="canvasEl" class="hidden" />
+            <p v-if="decoderLabel" class="text-[11px] ui-text-muted">{{ decoderLabel }}</p>
             <button class="ui-btn-outline px-3 py-1.5 text-xs" @click="stopScan">Cancel</button>
           </div>
           <p v-if="scanError" class="mt-2 text-xs ui-text-accent">{{ scanError }}</p>
