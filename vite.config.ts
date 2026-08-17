@@ -2,6 +2,7 @@ import { resolve } from 'path'
 import type { Plugin } from 'vite'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 // Umami analytics: injected only when VITE_ENABLE_UMAMI=true (set in .github/workflows/pages.yml
 // for the GitHub Pages release build). Local dev, preview, and other builds omit this entirely.
@@ -30,7 +31,10 @@ export default defineConfig({
     outDir: resolve('dist'),
     emptyOutDir: true
   },
-  plugins: [vue(), umamiPlugin()],
+  // VITE_LAN_HTTPS serves the dev server over HTTPS with a self-signed cert so
+  // it can be opened from a phone on the LAN: getUserMedia (the QR scanner's
+  // camera) only works in a secure context on any origin other than localhost.
+  plugins: [vue(), umamiPlugin(), ...(process.env.VITE_LAN_HTTPS === 'true' ? [basicSsl()] : [])],
   resolve: {
     alias: {
       '@renderer': resolve('src/renderer/src'),
