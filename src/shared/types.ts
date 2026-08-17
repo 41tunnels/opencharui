@@ -133,17 +133,11 @@ export interface ModelInfo {
 /** `displaced`: another tab or device took this pairing over. The relay
  * keeps one client per pair, so this side stands down instead of taking it
  * straight back (spec §8) and waits for the user to reclaim it. */
-export type RelayState =
-  | 'connecting'
-  | 'waiting'
-  | 'online'
-  | 'offline'
-  | 'displaced'
-  | 'closed'
+export type RelayState = 'connecting' | 'waiting' | 'online' | 'offline' | 'displaced' | 'closed'
 
 export interface LLMStatus {
   ollamaAvailable: boolean
-  /** True when connected via an amallo instance (API key set, or relay
+  /** True when connected via an Amallo instance (API key set, or relay
    * paired) rather than plain Ollama. */
   usingAmallo: boolean
   /** True when the server answered 401 — the URL is reachable but the API key is missing/wrong */
@@ -178,7 +172,7 @@ export interface AppSettings {
   systemPrompt: string
   /** When empty, dev uses the Vite proxy at /ollama; production uses http://127.0.0.1:11434 */
   ollamaUrl: string
-  /** Bearer token sent as `Authorization: Bearer <key>` (e.g. an amallo API key). Empty = no auth header. */
+  /** Bearer token sent as `Authorization: Bearer <key>` (e.g. an Amallo API key). Empty = no auth header. */
   ollamaApiKey: string
   /** Id of the currently active row in the `pairings` IndexedDB store (see
    * db/pairings.ts) — the relay URL/pair id/PSK indirection all live there
@@ -186,7 +180,7 @@ export interface AppSettings {
   activePairingId: string
 }
 
-/** One saved relay pairing (a QR-scanned amallo instance). Stored in the
+/** One saved Relay pairing (a QR-scanned Amallo instance). Stored in the
  * `pairings` IndexedDB store, keyed by `id`; see db/pairings.ts. */
 export interface StoredPairing {
   id: string

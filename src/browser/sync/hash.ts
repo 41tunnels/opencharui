@@ -1,6 +1,6 @@
 /**
  * SHA-256 over raw bytes, not a canonical structural form — the hash is
- * computed over `JSON.stringify(data)` exactly as sent, and amallo hashes
+ * computed over `JSON.stringify(data)` exactly as sent, and Amallo hashes
  * the exact bytes it receives. Neither side canonicalizes; convergence
  * comes from both devices running the same TypeScript serialization path,
  * not from a spec. See `registry.ts`'s `SyncNamespace.list()` contract for
@@ -22,7 +22,7 @@ export const sha256HexBytes = async (bytes: Uint8Array): Promise<string> => {
 }
 
 /** SHA-256 of the empty byte string — the fixed hash convention for
- * tombstones (which carry no `data`), matching amallo's
+ * tombstones (which carry no `data`), matching Amallo's
  * `store::hash::EMPTY_HASH`. This is what makes repeated local deletes of
  * the same key idempotent on push (`duplicate`, not a fresh `applied`). */
 export const EMPTY_HASH = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'

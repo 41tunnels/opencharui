@@ -33,7 +33,7 @@ const hostnameLabel = (relayUrl: string): string => {
 /**
  * Parses a scanned/pasted pairing code and either adds a new saved pairing
  * or, if one already exists for the same relay URL + pair id, refreshes its
- * PSK in place (a re-scan of the same amallo instance is a refresh, not a
+ * PSK in place (a re-scan of the same Amallo instance is a refresh, not a
  * second device — its label is kept unless `label` overrides it). The
  * result is made active and connected. `label` is optional; when omitted
  * or blank on a new pairing, it defaults to the relay URL's hostname.
@@ -46,7 +46,9 @@ export const addPairingFromCode = async (raw: string, label?: string): Promise<v
 
   const { id: pskId, key } = await savePsk(parsed.psk)
 
-  const existing = (await listPairings()).find((p) => p.relayUrl === relayUrl && p.pairId === pairId)
+  const existing = (await listPairings()).find(
+    (p) => p.relayUrl === relayUrl && p.pairId === pairId
+  )
 
   let row: StoredPairing
   if (existing) {
@@ -79,7 +81,7 @@ export const setActivePairing = async (id: string): Promise<void> => {
   if (!row) throw new Error('relay: no saved pairing with that id')
 
   const key = await loadPsk(row.pskId)
-  if (!key) throw new Error('relay: this pairing\'s secret is missing — remove and re-pair it')
+  if (!key) throw new Error("relay: this pairing's secret is missing — remove and re-pair it")
 
   await setActivePairingId(id)
   connectTo(row, key)
@@ -124,7 +126,12 @@ export const listSavedPairings = async (): Promise<RelayPairingSummary[]> => {
   return rows
     .slice()
     .sort((a, b) => a.addedAt - b.addedAt)
-    .map((row) => ({ id: row.id, label: row.label, relayUrl: row.relayUrl, active: row.id === activeId }))
+    .map((row) => ({
+      id: row.id,
+      label: row.label,
+      relayUrl: row.relayUrl,
+      active: row.id === activeId
+    }))
 }
 
 /** True when a pairing is saved and active, regardless of live connection

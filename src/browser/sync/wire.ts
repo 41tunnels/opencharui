@@ -2,7 +2,7 @@
 // `res.json()` straight to a TS interface with no runtime validation
 // (device-sync.ts:217's `as SyncResponse`). Parsing here means a shape
 // mismatch (a protocol drift, a proxy mangling the body) surfaces as a
-// clear "This amallo version does not support sync"-style error instead of
+// clear "This Amallo version does not support sync"-style error instead of
 // an undefined-is-not-a-function crash three calls deep.
 import { z } from 'zod'
 
@@ -27,7 +27,13 @@ export const pullResponseSchema = z.object({
 })
 export type PullResponse = z.infer<typeof pullResponseSchema>
 
-export const pushStatusSchema = z.enum(['applied', 'duplicate', 'superseded', 'missingBlobs', 'rejected'])
+export const pushStatusSchema = z.enum([
+  'applied',
+  'duplicate',
+  'superseded',
+  'missingBlobs',
+  'rejected'
+])
 export type PushStatus = z.infer<typeof pushStatusSchema>
 
 export const pushResultSchema = z.object({

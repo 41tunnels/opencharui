@@ -9,7 +9,7 @@ import { blobCheckResponseSchema } from './wire'
 import { sha256HexBytes } from './hash'
 
 /** Below this, a round trip through the blob store costs more than just
- * inlining the bytes — matches amallo's blob-vs-inline tradeoff point. */
+ * inlining the bytes — matches Amallo's blob-vs-inline tradeoff point. */
 const BLOB_MIN_BYTES = 4096
 const BLOB_TIMEOUT_MS = 120_000
 const CHECK_TIMEOUT_MS = 15_000
@@ -51,7 +51,10 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
  * `pending` (hash -> bytes), for the caller to check/upload once per pass
  * before pushing the record that now only carries the reference.
  */
-export const toBlobRefs = async (doc: unknown, pending: Map<string, Uint8Array>): Promise<unknown> => {
+export const toBlobRefs = async (
+  doc: unknown,
+  pending: Map<string, Uint8Array>
+): Promise<unknown> => {
   if (typeof doc === 'string') {
     const match = DATA_URL.exec(doc)
     if (!match) return doc

@@ -4,7 +4,7 @@ import { onScopeDispose, ref, watch, type Ref } from 'vue'
 export const DISCONNECT_GRACE_MS = 3000
 
 /**
- * Debounces a "we lost the connection" flag so a brief drop (an amallo
+ * Debounces a "we lost the connection" flag so a brief drop (an Amallo
  * reconnect after a Wi-Fi flip or a tab resume) doesn't immediately take over
  * the screen with the setup overlay.
  *

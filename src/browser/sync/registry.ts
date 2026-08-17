@@ -33,7 +33,7 @@ export interface LocalRecord {
  *   they will never converge to `duplicate` and will re-push forever.
  */
 export interface SyncNamespace {
-  /** Wire namespace. Must match `/^[a-z][a-z0-9_]{0,31}$/` (amallo's
+  /** Wire namespace. Must match `/^[a-z][a-z0-9_]{0,31}$/` (Amallo's
    * `store::validate::valid_namespace`). */
   readonly name: string
 

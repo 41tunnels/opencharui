@@ -52,7 +52,11 @@ class SyncHttpError extends Error {
   }
 }
 
-const request = async (path: string, init: RequestInit, timeoutMs = DOC_TIMEOUT_MS): Promise<unknown> => {
+const request = async (
+  path: string,
+  init: RequestInit,
+  timeoutMs = DOC_TIMEOUT_MS
+): Promise<unknown> => {
   const connection = await resolveConnection()
   let res: Response
   try {
@@ -65,11 +69,12 @@ const request = async (path: string, init: RequestInit, timeoutMs = DOC_TIMEOUT_
       signal: AbortSignal.timeout(timeoutMs)
     })
   } catch {
-    throw new SyncHttpError('amallo unreachable', 'error')
+    throw new SyncHttpError('Amallo unreachable', 'error')
   }
 
   if (res.status === 401) throw new SyncHttpError('Unauthorized — check API key', 'error')
-  if (res.status === 404) throw new SyncHttpError('This amallo version does not support sync', 'unsupported')
+  if (res.status === 404)
+    throw new SyncHttpError('This Amallo version does not support sync', 'unsupported')
   if (res.status === 409) {
     const parsed = apiErrorSchema.safeParse(await res.json().catch(() => ({})))
     throw new SyncHttpError(
@@ -116,7 +121,7 @@ const gatherPushCandidates = async (pending: Map<string, Uint8Array>): Promise<P
       // pure function of its input, so serializing `substituted` here and
       // again as part of the outer push-request JSON.stringify (below)
       // produces byte-identical text for this field either way — that
-      // identity is what lets amallo's server-side hash recomputation
+      // identity is what lets Amallo's server-side hash recomputation
       // agree with this hash without either side canonicalizing anything.
       const hash = await sha256Hex(JSON.stringify(substituted))
       const ack = await meta.getAck(ns.name, record.key)
@@ -141,7 +146,13 @@ const gatherPushCandidates = async (pending: Map<string, Uint8Array>): Promise<P
     for (const tomb of tombstones) {
       const ack = await meta.getAck(ns.name, tomb.id)
       if (!ack || ack.hash !== EMPTY_HASH) {
-        candidates.push({ namespace: ns.name, key: tomb.id, updatedAt: tomb.deletedAt, hash: EMPTY_HASH, deleted: true })
+        candidates.push({
+          namespace: ns.name,
+          key: tomb.id,
+          updatedAt: tomb.deletedAt,
+          hash: EMPTY_HASH,
+          deleted: true
+        })
       }
     }
   }
@@ -167,7 +178,11 @@ const pushCandidates = async (candidates: PushCandidate[]): Promise<void> => {
     const response = pushResponseSchema.parse(await postV1('/extended/v1/push', body))
 
     for (const result of response.results) {
-      if (result.status === 'applied' || result.status === 'duplicate' || result.status === 'superseded') {
+      if (
+        result.status === 'applied' ||
+        result.status === 'duplicate' ||
+        result.status === 'superseded'
+      ) {
         // The hash alone determines deleted-ness (EMPTY_HASH = tombstone),
         // so there's no need for the server to say so separately — this
         // also correctly reflects a `superseded` result, whose hash is the
@@ -205,7 +220,9 @@ const applyPage = async (
   counts: Map<string, ApplyCounts>
 ): Promise<boolean> => {
   let appliedAny = false
-  const dataRecords = records.filter((r) => !r.deleted).sort((a, b) => rankOf(namespaceByName, a.namespace) - rankOf(namespaceByName, b.namespace))
+  const dataRecords = records
+    .filter((r) => !r.deleted)
+    .sort((a, b) => rankOf(namespaceByName, a.namespace) - rankOf(namespaceByName, b.namespace))
   const tombstoneRecords = records
     .filter((r) => r.deleted)
     .sort((a, b) => rankOf(namespaceByName, b.namespace) - rankOf(namespaceByName, a.namespace))
@@ -270,8 +287,8 @@ const runSync = async (): Promise<SyncStatus> => {
   const connection = await resolveConnection()
   const lastSyncedAt = (await meta.getLastSyncedAt()) ?? null
 
-  // Sync needs *some* form of amallo authentication - either a relay
-  // pairing (amallo stamps its own bearer token on that path) or a direct
+  // Sync needs *some* form of Amallo authentication - either a relay
+  // pairing (Amallo stamps its own bearer token on that path) or a direct
   // API key (the LAN/tray-copied-connection path). Web never holds a
   // bearer token over the relay, so gating on the raw key alone would
   // silently disable sync for every relay user.

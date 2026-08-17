@@ -30,7 +30,7 @@ export interface OllamaConnection {
   /** '' when transport is 'relay' — relayFetch resolves paths against the
    * relay session, not a real origin. */
   baseUrl: string
-  /** '' when transport is 'relay' — amallo stamps its own bearer token on
+  /** '' when transport is 'relay' — Amallo stamps its own bearer token on
    * relay-originated requests; web never holds it (see relay/dispatch.rs). */
   apiKey: string
 }
@@ -106,10 +106,10 @@ export const buildHeaders = (
 })
 
 /**
- * True when the configured connection targets an amallo instance rather
- * than a plain Ollama — either transport is 'relay' (amallo is
+ * True when the configured connection targets an Amallo instance rather
+ * than a plain Ollama — either transport is 'relay' (Amallo is
  * necessarily on the other end of a relay pairing), or a bearer token is
- * set (the direct/LAN amallo path, which still requires one).
+ * set (the direct/LAN Amallo path, which still requires one).
  */
 export const isUsingAmallo = async (): Promise<boolean> => {
   const conn = await resolveConnection()
@@ -177,7 +177,9 @@ export const fetchTags = async (options: { force?: boolean } = {}): Promise<Tags
   }
 }
 
-export const probeOllama = async (options: { force?: boolean } = {}): Promise<OllamaProbeResult> => {
+export const probeOllama = async (
+  options: { force?: boolean } = {}
+): Promise<OllamaProbeResult> => {
   return (await fetchTags(options)).probe
 }
 
@@ -249,7 +251,10 @@ const fetchLoadedContextLength = async (modelId: string): Promise<number | null>
 
 export const getModelContextLength = async (modelId: string): Promise<number> => {
   const cached = modelContextCache.get(modelId)
-  if (cached !== undefined && Date.now() - (loadedContextFetchedAt.get(modelId) ?? 0) < LOADED_CONTEXT_TTL_MS) {
+  if (
+    cached !== undefined &&
+    Date.now() - (loadedContextFetchedAt.get(modelId) ?? 0) < LOADED_CONTEXT_TTL_MS
+  ) {
     return cached
   }
 
@@ -313,11 +318,7 @@ const mapPullProgress = (chunk: PullResponse): ModelPullProgress => {
   const progress: ModelPullProgress = { status: chunk.status }
   if (typeof chunk.completed === 'number') progress.completed = chunk.completed
   if (typeof chunk.total === 'number') progress.total = chunk.total
-  if (
-    typeof chunk.completed === 'number' &&
-    typeof chunk.total === 'number' &&
-    chunk.total > 0
-  ) {
+  if (typeof chunk.completed === 'number' && typeof chunk.total === 'number' && chunk.total > 0) {
     progress.percent = Math.min(100, Math.round((chunk.completed / chunk.total) * 100))
   }
   return progress

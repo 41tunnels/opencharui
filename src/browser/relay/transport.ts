@@ -1,7 +1,7 @@
 // Manages one relay connection for the web client: dial, hello, the E2E
 // handshake (spec §4), and a multiplexed inner-frame router keyed by
 // stream_id. Reconnects automatically with exponential backoff and full
-// jitter on any drop. Mirrors amallo's `relay/conn.rs` — the same
+// jitter on any drop. Mirrors Amallo's `relay/conn.rs` — the same
 // protocol, the client side of it.
 import {
   HandshakeError,
@@ -17,7 +17,15 @@ import {
   verifyConfirm,
   verifyHello
 } from './crypto'
-import { Channel, InnerType, decodeInnerAll, encodeInner, encodeOuter, parseOuter, type InnerFrame } from './wire'
+import {
+  Channel,
+  InnerType,
+  decodeInnerAll,
+  encodeInner,
+  encodeOuter,
+  parseOuter,
+  type InnerFrame
+} from './wire'
 
 export interface WebSocketLike {
   readonly readyState: number
@@ -97,13 +105,14 @@ function waitForOpen(ws: WebSocketLike): Promise<void> {
 async function toUint8Array(data: unknown): Promise<Uint8Array> {
   if (data instanceof Uint8Array) return data
   if (data instanceof ArrayBuffer) return new Uint8Array(data)
-  if (typeof Blob !== 'undefined' && data instanceof Blob) return new Uint8Array(await data.arrayBuffer())
+  if (typeof Blob !== 'undefined' && data instanceof Blob)
+    return new Uint8Array(await data.arrayBuffer())
   throw new Error('relay: unexpected message data type')
 }
 
 /** A minimal async queue bridging the WebSocket's event-driven `message`/
  * `close`/`error` callbacks into a sequential `await queue.next()` loop —
- * the same shape as amallo's `conn.rs` read loop, just expressed with
+ * the same shape as Amallo's `conn.rs` read loop, just expressed with
  * promises instead of a blocking channel receive. */
 class AsyncQueue<T> {
   private items: T[] = []
@@ -142,7 +151,7 @@ const BACKOFF_BASE_MS = 500
 const BACKOFF_MULTIPLIER = 1.8
 const BACKOFF_CAP_MS = 30_000
 /** A connection that stayed up this long resets the backoff exponent —
- * mirrors amallo's `BACKOFF_RESET_AFTER` (relay/mod.rs). Without it, the
+ * mirrors Amallo's `BACKOFF_RESET_AFTER` (relay/mod.rs). Without it, the
  * only reset is a `connectOnce()` that returns without throwing, and a
  * browser socket dropping abnormally fires `error` before `close`, so the
  * common case never reset and every later reconnect inherited the delay
@@ -159,7 +168,7 @@ const HANDSHAKE_TIMEOUT_MS = 15_000
  * sends its first request the moment it has verified our CONFIRM, which
  * can be before we've installed the session — dropping those would strand
  * a request it considers sent, and §5's exact-counter rule leaves no
- * freedom about the order. Matches amallo's `MAX_PENDING_CIPHERTEXT`. */
+ * freedom about the order. Matches Amallo's `MAX_PENDING_CIPHERTEXT`. */
 const MAX_PENDING_CIPHERTEXT = 16
 
 /** Why a handshake attempt ended. `restart` means a newer peer attached
@@ -364,7 +373,7 @@ export class RelayTransport {
    * Runs one connection to completion. A *session* — the E2E handshake and
    * the keys it produces — lives and dies inside this, possibly several
    * times over (spec §4.6: "the next `peer_online` starts a fresh
-   * handshake on the same socket"). That is what amallo has always done on
+   * handshake on the same socket"). That is what Amallo has always done on
    * its side; without the matching behaviour here, an agent that redialled
    * and displaced its old socket left this client attached, `online`, and
    * sealing with keys nothing on the other end could open.
@@ -432,7 +441,7 @@ export class RelayTransport {
           // A peer HELLO that overtook (or replaced) the `peer_online`
           // that should have preceded it. Without this, a re-pair whose
           // notification was lost would strand the connection with no way
-          // back — the same guard amallo's read loop carries.
+          // back — the same guard Amallo's read loop carries.
           await this.startSession(ws, queue, payload)
           continue
         }
@@ -455,7 +464,7 @@ export class RelayTransport {
   }
 
   /** Retires the current session's keys and fails anything waiting on it.
-   * In-flight streams belong to a peer that is gone — amallo builds a
+   * In-flight streams belong to a peer that is gone — Amallo builds a
    * fresh dispatcher per session, so they can never be answered. */
   private retireSession(): void {
     const hadSession = this.sealer !== null
@@ -511,7 +520,7 @@ export class RelayTransport {
           // previous connection sealed these under the session that just
           // died. They fail to authenticate, so nothing is acted on —
           // dropping beats killing a healthy connection over a frame the
-          // peer has already given up on. amallo does the same (conn.rs).
+          // peer has already given up on. Amallo does the same (conn.rs).
         }
       }
       return
@@ -603,7 +612,9 @@ export class RelayTransport {
 
       if (header.channel === Channel.Ciphertext) {
         if (pending.length >= MAX_PENDING_CIPHERTEXT) {
-          throw new Error('relay: too many ciphertext frames arrived before the session was established')
+          throw new Error(
+            'relay: too many ciphertext frames arrived before the session was established'
+          )
         }
         pending.push(payload)
         continue

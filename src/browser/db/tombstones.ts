@@ -3,7 +3,7 @@ import { getAll, putSilent, deleteByKeySilent } from './index'
 /**
  * A synced namespace whose deletions must propagate across devices. Any
  * string matching the wire protocol's namespace charset
- * (`/^[a-z][a-z0-9_]{0,31}$/`, see amallo's `store::validate`) is valid —
+ * (`/^[a-z][a-z0-9_]{0,31}$/`, see Amallo's `store::validate`) is valid —
  * this is no longer a fixed union. The field is still named `collection`
  * on disk (not `namespace`) deliberately: renaming it would silently
  * orphan any tombstone a user already has stored locally from before this

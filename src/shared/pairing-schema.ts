@@ -34,7 +34,7 @@ const rawSchema = z.string().trim().min(1, 'pairing code must not be empty')
 
 /**
  * Parses the `opencharui://pair?v=1&r=<relay_url>&i=<pair_id>&k=<psk>` URI
- * amallo's QR code encodes (spec §4.2) — replaces the old copy-JSON
+ * Amallo's QR code encodes (spec §4.2) — replaces the old copy-JSON
  * connection blob (`connection-schema.ts`, deleted) now that pairing is a
  * single scan or paste rather than a manually-copied `{url, api_key}`
  * object. Accepts either the full `opencharui://...` URI (from a scan) or
@@ -49,7 +49,9 @@ export const parsePairingCode = (raw: string): PairingInput => {
   try {
     // A bare query string (no scheme) is also accepted — the manual-paste
     // fallback may reasonably not include the `opencharui://pair` prefix.
-    url = new URL(trimmed.includes('://') ? trimmed : `opencharui://pair?${trimmed.replace(/^\?/, '')}`)
+    url = new URL(
+      trimmed.includes('://') ? trimmed : `opencharui://pair?${trimmed.replace(/^\?/, '')}`
+    )
   } catch {
     throw new Error('Not a valid pairing code')
   }
@@ -78,7 +80,9 @@ export const parsePairingCode = (raw: string): PairingInput => {
   if (!pairIdRaw) throw new Error('Pairing code is missing the pair id')
   const pairId = base64UrlDecode(pairIdRaw)
   if (pairId.length !== PAIR_ID_BYTES) {
-    throw new Error(`Pairing code's pair id must decode to ${PAIR_ID_BYTES} bytes, got ${pairId.length}`)
+    throw new Error(
+      `Pairing code's pair id must decode to ${PAIR_ID_BYTES} bytes, got ${pairId.length}`
+    )
   }
 
   const pskRaw = url.searchParams.get('k')
