@@ -36,6 +36,12 @@ let decodeQr:
   ((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null =
   null
 let unsubscribeStatus: (() => void) | null = null
+let detectorStartedAt = 0
+// Some platforms (notably Windows/Linux Chromium) expose BarcodeDetector but
+// its detection backend never actually finds anything — it just silently
+// returns no results forever. Give it a window to prove itself, then fall
+// back to the pure-JS decoder that's known to work everywhere.
+const DETECTOR_TIMEOUT_MS = 3000
 
 const stateLabel = computed(() => {
   switch (state.value) {
@@ -153,6 +159,10 @@ const scanTick = async (): Promise<void> => {
       } catch {
         // Transient per-frame detection failures are expected — keep scanning.
       }
+      if (Date.now() - detectorStartedAt > DETECTOR_TIMEOUT_MS) {
+        detector = null
+        decodeQr = (await import('jsqr')).default
+      }
     } else if (decodeQr) {
       canvas.width = video.videoWidth
       canvas.height = video.videoHeight
@@ -202,6 +212,7 @@ const startScan = async (): Promise<void> => {
     .BarcodeDetector
   if (BarcodeDetectorGlobal) {
     detector = new BarcodeDetectorGlobal({ formats: ['qr_code'] })
+    detectorStartedAt = Date.now()
   } else {
     // Dynamic import: ~30 KB kept out of the main bundle for the browsers
     // (Chrome/Edge/Android) that have BarcodeDetector and never need it.
