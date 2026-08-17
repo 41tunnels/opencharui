@@ -157,20 +157,32 @@ export const createBrowserApi = (): OpenCharUiApi => {
       }
     },
     relay: {
+      list: async () => pairing.listSavedPairings(),
       getStatus: async () => {
         const s = await getSettings()
+        const active = s.activePairingId ? await pairing.getSavedPairing(s.activePairingId) : undefined
         return {
           paired: await pairing.isPaired(),
-          relayUrl: s.relayUrl,
+          activeId: s.activePairingId,
+          relayUrl: active?.relayUrl ?? '',
+          label: active?.label ?? '',
           state: relayState()
         }
       },
-      pair: async (code: string) => {
-        await pairing.pairWithCode(code)
+      add: async (code: string, label?: string) => {
+        await pairing.addPairingFromCode(code, label)
         void deviceSync.syncNow()
       },
-      unpair: async () => {
-        await pairing.unpair()
+      setActive: async (id: string) => {
+        await pairing.setActivePairing(id)
+        void deviceSync.syncNow()
+      },
+      rename: async (id: string, label: string) => {
+        await pairing.renamePairing(id, label)
+      },
+      remove: async (id: string) => {
+        await pairing.removePairing(id)
+        void deviceSync.syncNow()
       },
       reconnect: async () => {
         reconnectRelay()

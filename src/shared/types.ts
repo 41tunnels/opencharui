@@ -180,16 +180,40 @@ export interface AppSettings {
   ollamaUrl: string
   /** Bearer token sent as `Authorization: Bearer <key>` (e.g. an amallo API key). Empty = no auth header. */
   ollamaApiKey: string
-  /** The relay's base URL from the pairing QR/code, e.g. "wss://relay.opencharui.com". Empty = no pairing. */
+  /** Id of the currently active row in the `pairings` IndexedDB store (see
+   * db/pairings.ts) — the relay URL/pair id/PSK indirection all live there
+   * now, since a user can have several saved pairings. Empty = no pairing. */
+  activePairingId: string
+}
+
+/** One saved relay pairing (a QR-scanned amallo instance). Stored in the
+ * `pairings` IndexedDB store, keyed by `id`; see db/pairings.ts. */
+export interface StoredPairing {
+  id: string
+  /** User-editable display name, e.g. "Home PC". Defaults to the relay
+   * URL's hostname when not given at pairing time. */
+  label: string
+  /** The relay's base URL from the pairing QR/code, e.g. "wss://relay.opencharui.com". */
   relayUrl: string
   /** 16-byte pair_id, base64url — not secret on its own (spec §9: it's a
    * connectivity capability, not what confidentiality depends on), so it's
-   * safe to store as plain JSON alongside the other settings. */
-  relayPairId: string
+   * safe to store as plain JSON alongside the other fields. */
+  pairId: string
   /** Looks up the paired PSK in the `relaySecrets` IndexedDB store (see
-   * db/relay-secrets.ts) — the raw key bytes never live in this settings
-   * row, only this indirection. Empty = no pairing. */
-  relayPskId: string
+   * db/relay-secrets.ts) — the raw key bytes never live in this row, only
+   * this indirection. */
+  pskId: string
+  addedAt: number
+}
+
+/** Summary of a saved pairing for the settings UI's list — no live
+ * connection state (that's only meaningful for the active one; see
+ * `relay.getStatus()`). */
+export interface RelayPairingSummary {
+  id: string
+  label: string
+  relayUrl: string
+  active: boolean
 }
 
 export type AppTheme = 'light' | 'dark'

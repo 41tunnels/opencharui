@@ -6,16 +6,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
   ollamaApiKey: '',
-  relayUrl: '',
-  relayPairId: '',
-  relayPskId: ''
+  activePairingId: ''
 }
 
 // A key list rather than one hardcoded `if` per field in both
 // getSettings and saveSettings — the previous shape needed a matching
 // pair of checks added by hand for every new setting, which is exactly
-// the kind of place a new field (relayUrl/relayPairId/relayPskId) is easy
-// to add to one function and forget in the other.
+// the kind of place a new field (activePairingId) is easy to add to one
+// function and forget in the other.
 const SETTINGS_KEYS = Object.keys(DEFAULT_SETTINGS) as (keyof AppSettings)[]
 
 type SettingRow = { key: string; value: string }

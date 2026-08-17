@@ -13,6 +13,7 @@ import type {
   ModelPullProgress,
   Persona,
   PersonaSummary,
+  RelayPairingSummary,
   RelayState,
   SyncStatus
 } from '@shared/types'
@@ -69,13 +70,28 @@ export interface OpenCharUiApi {
     save(settings: Partial<AppSettings>): Promise<AppSettings>
   }
   relay: {
-    /** Whether pairing settings exist and, if so, the relay URL and live
-     * connection state (null while not yet connected). */
-    getStatus(): Promise<{ paired: boolean; relayUrl: string; state: RelayState | null }>
-    /** Parses a scanned/pasted `opencharui://pair?...` code, persists it,
-     * and connects — replacing any previous pairing. */
-    pair(code: string): Promise<void>
-    unpair(): Promise<void>
+    /** Every saved pairing, in the order they were added. */
+    list(): Promise<RelayPairingSummary[]>
+    /** Whether a pairing is active and, if so, its id/label/relay URL and
+     * live connection state (null while not yet connected). */
+    getStatus(): Promise<{
+      paired: boolean
+      activeId: string
+      relayUrl: string
+      label: string
+      state: RelayState | null
+    }>
+    /** Parses a scanned/pasted `opencharui://pair?...` code and saves it as
+     * a new pairing (or refreshes an existing one for the same relay
+     * URL/pair id), makes it active, and connects. `label` names the
+     * pairing; when omitted it defaults to the relay URL's hostname. */
+    add(code: string, label?: string): Promise<void>
+    /** Switches the active pairing and connects to it. */
+    setActive(id: string): Promise<void>
+    rename(id: string, label: string): Promise<void>
+    /** Removes a saved pairing. If it was active, another saved pairing (if
+     * any) is promoted to active. */
+    remove(id: string): Promise<void>
     /** Reclaim a pairing that another tab or device took over. */
     reconnect(): Promise<void>
     onStatusChanged(callback: (state: RelayState | null) => void): () => void

@@ -68,9 +68,10 @@ describe('IndexedDB v4 -> v5 migration', () => {
       req.onerror = () => reject(req.error)
     })
 
-    // Now let the app open it — triggers the v4 -> v5 upgrade.
+    // Now let the app open it — triggers the v4 -> v5 upgrade (and on to
+    // v6, since openDb() always requests the current version).
     const db = await openDb()
-    expect(db.version).toBe(5)
+    expect(db.version).toBe(6)
     expect(db.objectStoreNames.contains('syncMeta')).toBe(true)
     expect(db.objectStoreNames.contains('syncAcks')).toBe(true)
     expect(db.objectStoreNames.contains('blobCache')).toBe(true)

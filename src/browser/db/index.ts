@@ -11,6 +11,7 @@ export type StoreName =
   | 'syncMeta'
   | 'syncAcks'
   | 'blobCache'
+  | 'pairings'
 
 /** Stores whose writes affect Amallo sync payloads (and warrant cross-tab refresh). */
 const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
@@ -22,7 +23,16 @@ const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
 ])
 
 const DB_NAME = 'opencharui'
-const DB_VERSION = 5
+const DB_VERSION = 6
+
+/** Matches db/relay-secrets.ts's `generateId()` shape — kept local rather
+ * than shared since it's a 3-line helper and this call site runs inside a
+ * versionchange transaction, before that module's own storage helpers can
+ * safely be used. */
+const generatePairingId = (): string => {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -113,6 +123,59 @@ export const openDb = (): Promise<IDBDatabase> => {
           // Downloaded blob bytes, keyed by content hash, so re-applying a
           // document doesn't re-download its avatar every pass.
           db.createObjectStore('blobCache', { keyPath: 'hash' })
+        }
+
+        // v6: multiple saved relay pairings (see db/pairings.ts) instead of
+        // one flat relayUrl/relayPairId/relayPskId triple in `settings`.
+        if (!db.objectStoreNames.contains('pairings')) {
+          db.createObjectStore('pairings', { keyPath: 'id' })
+        }
+
+        // Migrate a pre-existing single pairing, if any, into one row here
+        // — reusing its `relaySecrets` PSK row untouched, only ever adding
+        // the new indirection on top of it. Runs once, for upgrades that
+        // actually crossed v5 (a fresh v6 database has nothing to migrate).
+        if (event.oldVersion > 0 && event.oldVersion < 6) {
+          const tx = request.transaction
+          if (tx) {
+            const settingsStore = tx.objectStore('settings')
+            const pairingsStore = tx.objectStore('pairings')
+
+            const relayUrlReq = settingsStore.get('relayUrl')
+            relayUrlReq.onsuccess = () => {
+              const relayUrlRow = relayUrlReq.result as { key: string; value: string } | undefined
+              const relayUrl = relayUrlRow ? (JSON.parse(relayUrlRow.value) as string) : ''
+              if (!relayUrl) return
+
+              const pairIdReq = settingsStore.get('relayPairId')
+              pairIdReq.onsuccess = () => {
+                const pairIdRow = pairIdReq.result as { key: string; value: string } | undefined
+                const pairId = pairIdRow ? (JSON.parse(pairIdRow.value) as string) : ''
+                if (!pairId) return
+
+                const pskIdReq = settingsStore.get('relayPskId')
+                pskIdReq.onsuccess = () => {
+                  const pskIdRow = pskIdReq.result as { key: string; value: string } | undefined
+                  const pskId = pskIdRow ? (JSON.parse(pskIdRow.value) as string) : ''
+                  if (!pskId) return
+
+                  const id = generatePairingId()
+                  let label = relayUrl
+                  try {
+                    label = new URL(relayUrl).hostname || relayUrl
+                  } catch {
+                    // Keep the raw URL as the label if it doesn't parse.
+                  }
+
+                  pairingsStore.put({ id, label, relayUrl, pairId, pskId, addedAt: Date.now() })
+                  settingsStore.put({ key: 'activePairingId', value: JSON.stringify(id) })
+                  settingsStore.delete('relayUrl')
+                  settingsStore.delete('relayPairId')
+                  settingsStore.delete('relayPskId')
+                }
+              }
+            }
+          }
         }
       }
     })

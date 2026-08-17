@@ -14,9 +14,7 @@ const settings = ref<AppSettings>({
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
   ollamaApiKey: '',
-  relayUrl: '',
-  relayPairId: '',
-  relayPskId: ''
+  activePairingId: ''
 })
 const saved = ref(false)
 const saveError = ref<string | null>(null)
