@@ -6,14 +6,18 @@ Product and UX requirements for OpenCharUI.
 
 ### Accent formatting
 
-Text wrapped in asterisks must render differently from plain text in **all chat bubbles** (user messages, assistant messages, and streaming text).
+Thoughts and speech must render differently from plain text in **all chat bubbles** (user messages, assistant messages, and streaming text).
 
 | Syntax | Rendering |
 |--------|-----------|
-| `*text*` | Italic, accent color (`text-accent`) |
+| `*text*` | Thought — italic at 70% opacity (`.thought-text`) |
 | `**text**` | Same as above (also supported) |
+| `"text"` | Speech — semibold, wrapped in typographic quotes (`.quote-text`) |
 
-- Parsing lives in `src/shared/message-format.ts` (`parseAccentSegments`).
+- The distinction is **typographic, not chromatic**. The 41tunnels palette carries one
+  accent and does not spend it on prose, and reduced opacity stays legible on the
+  inverted user bubble where a fixed accent colour did not.
+- Parsing lives in `src/shared/message-format.ts` (`parseMessageSegments`).
 - UI component: `src/renderer/src/components/FormattedMessageText.vue`.
 - Plain text outside delimiters keeps the default bubble color.
 - Line breaks are preserved.

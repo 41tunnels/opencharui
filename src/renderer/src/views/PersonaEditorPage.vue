@@ -153,7 +153,9 @@ const exportPersona = async () => {
     <div class="mx-auto w-full max-w-2xl space-y-6">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold">{{ isNew ? 'New persona' : 'Edit persona' }}</h2>
+          <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">
+            {{ isNew ? 'New persona' : 'Edit persona' }}
+          </h2>
           <p class="text-sm ui-text-subtle">Define who you are in roleplay chats.</p>
         </div>
         <button
@@ -166,15 +168,11 @@ const exportPersona = async () => {
       </div>
 
       <p v-if="loading" class="text-sm ui-text-muted">Loading...</p>
-      <p v-if="loadError" class="text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
+      <p v-if="loadError" class="text-sm ui-text-accent">{{ loadError }}</p>
 
       <template v-if="!loading && !loadError">
         <div class="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            class="ui-btn-outline px-3 py-1.5 text-sm"
-            @click="toggleRawMode"
-          >
+          <button type="button" class="ui-btn-outline px-3 py-1.5 text-sm" @click="toggleRawMode">
             {{ rawMode ? 'Apply form mode' : 'JSON mode' }}
           </button>
           <button
@@ -196,7 +194,7 @@ const exportPersona = async () => {
 
         <div v-else class="space-y-4">
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Name</span>
+            <span class="ui-eyebrow mb-1.5 block">Name</span>
             <input
               v-model="form.name"
               class="ui-input w-full px-3 py-2 text-sm"
@@ -205,7 +203,7 @@ const exportPersona = async () => {
           </label>
 
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Description</span>
+            <span class="ui-eyebrow mb-1.5 block">Description</span>
             <textarea
               v-model="form.description"
               rows="8"
@@ -227,12 +225,12 @@ const exportPersona = async () => {
           <button
             v-if="!isNew"
             type="button"
-            class="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+            class="ui-btn-danger px-4 py-2 text-sm"
             @click="deletePersona"
           >
             Delete
           </button>
-          <span v-if="saveError" class="text-sm text-red-600 dark:text-red-400">{{ saveError }}</span>
+          <span v-if="saveError" class="text-sm ui-text-accent">{{ saveError }}</span>
         </div>
       </template>
     </div>

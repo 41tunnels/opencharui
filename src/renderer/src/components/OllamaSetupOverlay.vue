@@ -86,22 +86,25 @@ const openSettings = () => {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+  <div
+    class="fixed inset-0 z-50 flex items-center justify-center bg-[rgb(14_17_19_/_0.55)] p-4 backdrop-blur-sm"
+  >
     <div
-      class="ui-surface max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-xl sm:p-8"
+      class="ui-card max-h-[90vh] w-full max-w-lg overflow-y-auto p-6 sm:p-7"
+      style="box-shadow: var(--shadow-panel)"
     >
-      <p
-        v-if="previewProduction"
-        class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
-      >
-        Dev preview: production setup. Remove
-        <code class="text-amber-900 dark:text-amber-100">?setup=production</code>
-        from the URL to return to the dev overlay.
+      <p v-if="previewProduction" class="ui-mono-sm ui-status ui-status-warn mb-5">
+        <span class="ui-status-dot" />
+        <span>
+          dev preview: production setup — remove
+          <code class="ui-text-strong">?setup=production</code>
+          from the URL to return to the dev overlay.
+        </span>
       </p>
 
       <div class="mb-5">
-        <h2 class="text-xl font-semibold tracking-tight">
-          {{ mode === 'amallo' ? 'Connect from anywhere with amallo' : 'Connect to Ollama' }}
+        <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">
+          {{ mode === 'amallo' ? 'Connect from anywhere with Amallo' : 'Connect to Ollama' }}
         </h2>
         <p v-if="mode === 'amallo'" class="mt-2 text-sm leading-relaxed ui-text-muted">
           Install
@@ -109,11 +112,11 @@ const openSettings = () => {
             href="https://ollama.com/download"
             target="_blank"
             rel="noopener noreferrer"
-            class="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-400"
+            class="ui-text-accent underline underline-offset-2"
             >Ollama</a
           >
-          and amallo, then scan or paste the pairing code from amallo's tray menu — no
-          <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code> setup needed.
+          and Amallo, then scan or paste the pairing code from Amallo's tray menu — no
+          <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code> setup needed.
         </p>
         <p v-else class="mt-2 text-sm leading-relaxed ui-text-muted">
           Install
@@ -121,7 +124,7 @@ const openSettings = () => {
             href="https://ollama.com/download"
             target="_blank"
             rel="noopener noreferrer"
-            class="font-medium text-neutral-800 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-200 dark:decoration-neutral-600 dark:hover:decoration-neutral-400"
+            class="ui-text-accent underline underline-offset-2"
             >Ollama</a
           >
           and make sure it's running so OpenCharUI can reach it.
@@ -131,177 +134,167 @@ const openSettings = () => {
       <PairingPanel v-if="mode === 'amallo'" />
 
       <template v-else>
-      <template v-if="!showProductionSetup">
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-          <p class="text-sm font-medium">Development connection</p>
-          <p class="mt-1 text-sm ui-text-muted">
-            OpenCharUI proxies Ollama at
-            <code class="text-neutral-700 dark:text-neutral-300">/ollama</code>
-            — no
-            <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code>
-            setup is needed as long as Ollama is running on
-            <code class="text-neutral-700 dark:text-neutral-300">{{ DEFAULT_OLLAMA_URL }}</code>.
-          </p>
-        </div>
-      </template>
+        <template v-if="!showProductionSetup">
+          <div class="ui-card p-5">
+            <p class="ui-text-strong text-[17px] font-semibold">Development connection</p>
+            <p class="mt-1 text-sm ui-text-muted">
+              OpenCharUI proxies Ollama at
+              <code class="ui-mono-sm ui-text-strong">/ollama</code>
+              — no
+              <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code>
+              setup is needed as long as Ollama is running on
+              <code class="ui-mono-sm ui-text-strong">{{ DEFAULT_OLLAMA_URL }}</code
+              >.
+            </p>
+          </div>
+        </template>
 
-      <template v-else>
-        <div>
-          <p class="text-sm font-medium">Allow this site to reach Ollama</p>
-          <p class="mt-1 text-sm ui-text-muted">
-            OpenCharUI runs in your browser at
-            <a
-              :href="PRODUCTION_APP_URL"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-neutral-800 underline dark:text-neutral-200"
-              >{{ PRODUCTION_APP_URL }}</a
-            >. Ollama runs on your machine, so you must allow that origin to call your local Ollama
-            API.
-          </p>
-          <p class="mt-3 text-sm ui-text-muted">
-            Create a user variable named
-            <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code>
-            with this value:
-          </p>
-          <code
-            class="mt-2 block rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 text-xs dark:border-neutral-800 dark:bg-neutral-900"
-            >{{ PRODUCTION_OLLAMA_ORIGIN }}</code
-          >
-          <p class="mt-2 text-xs ui-text-subtle">
-            Use the site origin above (not the
-            <code class="text-neutral-700 dark:text-neutral-300">/web</code>
-            path). For local testing only, you can use
-            <code class="text-neutral-700 dark:text-neutral-300">*</code>
-            instead.
-          </p>
-
-          <div class="mt-4 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
-            <p class="text-xs font-medium uppercase tracking-wide ui-text-subtle">
-              Setup guide
+        <template v-else>
+          <div>
+            <p class="ui-text-strong text-[17px] font-semibold">Allow this site to reach Ollama</p>
+            <p class="mt-1 text-sm ui-text-muted">
+              OpenCharUI runs in your browser at
+              <a
+                :href="PRODUCTION_APP_URL"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="ui-text-accent"
+                >{{ PRODUCTION_APP_URL }}</a
+              >. Ollama runs on your machine, so you must allow that origin to call your local
+              Ollama API.
+            </p>
+            <p class="mt-3 text-sm ui-text-muted">
+              Create a user variable named
+              <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code>
+              with this value:
+            </p>
+            <code class="ui-code mt-2 block px-4 py-3">{{ PRODUCTION_OLLAMA_ORIGIN }}</code>
+            <p class="mt-2 text-xs ui-text-subtle">
+              Use the site origin above (not the
+              <code class="ui-mono-sm ui-text-strong">/web</code>
+              path). For local testing only, you can use
+              <code class="ui-mono-sm ui-text-strong">*</code>
+              instead.
             </p>
 
-            <div
-              class="mt-3 flex gap-1 rounded-lg border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-900/50"
-              role="tablist"
-              aria-label="Platform setup"
-            >
-              <button
-                type="button"
-                role="tab"
-                class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                :class="
-                  platformTab === 'windows'
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-                    : 'ui-text-muted hover:text-neutral-900 dark:hover:text-neutral-200'
-                "
-                :aria-selected="platformTab === 'windows'"
-                @click="platformTab = 'windows'"
-              >
-                Windows
-              </button>
-              <button
-                type="button"
-                role="tab"
-                class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                :class="
-                  platformTab === 'macos'
-                    ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-neutral-100'
-                    : 'ui-text-muted hover:text-neutral-900 dark:hover:text-neutral-200'
-                "
-                :aria-selected="platformTab === 'macos'"
-                @click="platformTab = 'macos'"
-              >
-                macOS
-              </button>
-            </div>
+            <div class="ui-card mt-5 p-5">
+              <p class="ui-eyebrow">setup guide</p>
 
-            <div v-show="platformTab === 'windows'" role="tabpanel" class="mt-3">
-              <ol class="list-decimal space-y-1 pl-4 text-sm ui-text-muted">
-                <li>Quit Ollama from the taskbar tray icon.</li>
-                <li>
-                  Open Start and search for
-                  <span class="text-neutral-800 dark:text-neutral-200"
-                    >Edit environment variables for your account</span
-                  >.
-                </li>
-                <li>
-                  Click <span class="text-neutral-800 dark:text-neutral-200">New…</span>, set name
-                  to
-                  <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code>
-                  and value to
-                  <code class="text-neutral-700 dark:text-neutral-300">{{
-                    PRODUCTION_OLLAMA_ORIGIN
-                  }}</code
-                  >.
-                </li>
-                <li>Click OK, then start Ollama again from the Start menu.</li>
-              </ol>
-              <p class="mt-2 text-xs ui-text-subtle">
-                Or run in an Administrator terminal:
-                <code class="text-neutral-700 dark:text-neutral-300"
-                  >setx OLLAMA_ORIGINS "{{ PRODUCTION_OLLAMA_ORIGIN }}" /M</code
+              <div class="ui-inset mt-4 flex gap-1 p-1" role="tablist" aria-label="Platform setup">
+                <button
+                  type="button"
+                  role="tab"
+                  class="flex-1 px-3 py-1.5 text-sm font-medium transition-colors"
+                  style="border-radius: var(--radius-1)"
+                  :class="
+                    platformTab === 'windows'
+                      ? 'ui-raised bg-card text-strong'
+                      : 'ui-text-muted hover:text-strong'
+                  "
+                  :aria-selected="platformTab === 'windows'"
+                  @click="platformTab = 'windows'"
                 >
-                then restart Ollama.
-              </p>
-            </div>
-
-            <div v-show="platformTab === 'macos'" role="tabpanel" class="mt-3 space-y-4">
-              <div>
-                <p class="text-sm font-medium">Temporary (until reboot)</p>
-                <p class="mt-1 text-sm ui-text-muted">
-                  Paste this one command into Terminal, then press Return:
-                </p>
-                <div class="relative mt-2">
-                  <code
-                    class="block overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 pr-20 text-xs dark:border-neutral-800 dark:bg-neutral-900"
-                    >{{ macTemporaryCommand }}</code
-                  >
-                  <button
-                    type="button"
-                    class="ui-btn-outline absolute top-2 right-2 px-2 py-1 text-xs"
-                    @click="copyMacText(macTemporaryCommand, 'temporary')"
-                  >
-                    {{ macCopied === 'temporary' ? 'Copied' : 'Copy' }}
-                  </button>
-                </div>
+                  Windows
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  class="flex-1 px-3 py-1.5 text-sm font-medium transition-colors"
+                  style="border-radius: var(--radius-1)"
+                  :class="
+                    platformTab === 'macos'
+                      ? 'ui-raised bg-card text-strong'
+                      : 'ui-text-muted hover:text-strong'
+                  "
+                  :aria-selected="platformTab === 'macos'"
+                  @click="platformTab = 'macos'"
+                >
+                  macOS
+                </button>
               </div>
 
-              <div>
-                <p class="text-sm font-medium">Permanent</p>
-                <p class="mt-1 text-sm ui-text-muted">
-                  Paste this script into Terminal to keep the setting across reboots:
-                </p>
-                <div class="relative mt-2">
-                  <code
-                    class="block max-h-48 overflow-auto rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-2 pr-20 text-xs whitespace-pre dark:border-neutral-800 dark:bg-neutral-900"
-                    >{{ macPermanentScript }}</code
-                  >
-                  <button
-                    type="button"
-                    class="ui-btn-outline absolute top-2 right-2 px-2 py-1 text-xs"
-                    @click="copyMacText(macPermanentScript, 'permanent')"
-                  >
-                    {{ macCopied === 'permanent' ? 'Copied' : 'Copy' }}
-                  </button>
-                </div>
+              <div v-show="platformTab === 'windows'" role="tabpanel" class="mt-3">
+                <ol class="list-decimal space-y-1 pl-4 text-sm ui-text-muted">
+                  <li>Quit Ollama from the taskbar tray icon.</li>
+                  <li>
+                    Open Start and search for
+                    <span class="ui-mono-sm ui-text-strong"
+                      >Edit environment variables for your account</span
+                    >.
+                  </li>
+                  <li>
+                    Click <span class="ui-mono-sm ui-text-strong">New…</span>, set name to
+                    <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code>
+                    and value to
+                    <code class="ui-mono-sm ui-text-strong">{{ PRODUCTION_OLLAMA_ORIGIN }}</code
+                    >.
+                  </li>
+                  <li>Click OK, then start Ollama again from the Start menu.</li>
+                </ol>
                 <p class="mt-2 text-xs ui-text-subtle">
-                  Writes a LaunchAgent, applies
-                  <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS</code>
-                  for this session, and restarts Ollama.
+                  Or run in an Administrator terminal:
+                  <code class="ui-mono-sm ui-text-strong"
+                    >setx OLLAMA_ORIGINS "{{ PRODUCTION_OLLAMA_ORIGIN }}" /M</code
+                  >
+                  then restart Ollama.
                 </p>
+              </div>
+
+              <div v-show="platformTab === 'macos'" role="tabpanel" class="mt-3 space-y-4">
+                <div>
+                  <p class="ui-text-strong text-[17px] font-semibold">Temporary (until reboot)</p>
+                  <p class="mt-1 text-sm ui-text-muted">
+                    Paste this one command into Terminal, then press Return:
+                  </p>
+                  <div class="relative mt-2">
+                    <code class="ui-code block overflow-x-auto px-4 py-3 pr-20">{{
+                      macTemporaryCommand
+                    }}</code>
+                    <button
+                      type="button"
+                      class="ui-btn-outline absolute top-2 right-2 px-2 py-1 text-xs"
+                      @click="copyMacText(macTemporaryCommand, 'temporary')"
+                    >
+                      {{ macCopied === 'temporary' ? 'Copied' : 'Copy' }}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p class="ui-text-strong text-[17px] font-semibold">Permanent</p>
+                  <p class="mt-1 text-sm ui-text-muted">
+                    Paste this script into Terminal to keep the setting across reboots:
+                  </p>
+                  <div class="relative mt-2">
+                    <code
+                      class="ui-code block max-h-48 overflow-auto px-4 py-3 pr-20 whitespace-pre"
+                      >{{ macPermanentScript }}</code
+                    >
+                    <button
+                      type="button"
+                      class="ui-btn-outline absolute top-2 right-2 px-2 py-1 text-xs"
+                      @click="copyMacText(macPermanentScript, 'permanent')"
+                    >
+                      {{ macCopied === 'permanent' ? 'Copied' : 'Copy' }}
+                    </button>
+                  </div>
+                  <p class="mt-2 text-xs ui-text-subtle">
+                    Writes a LaunchAgent, applies
+                    <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code>
+                    for this session, and restarts Ollama.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </template>
+        </template>
       </template>
 
-      <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+      <div class="mt-5 border-t border-hairline pt-4">
         <button
           v-if="mode === 'ollama'"
           type="button"
-          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
+          class="ui-text-accent text-sm font-medium underline underline-offset-2"
           @click="mode = 'amallo'"
         >
           Connect using Amallo
@@ -309,16 +302,14 @@ const openSettings = () => {
         <button
           v-else
           type="button"
-          class="text-sm font-medium text-neutral-600 underline decoration-neutral-300 underline-offset-2 hover:decoration-neutral-500 dark:text-neutral-400 dark:decoration-neutral-600"
+          class="ui-text-accent text-sm font-medium underline underline-offset-2"
           @click="mode = 'ollama'"
         >
           Use Ollama directly
         </button>
       </div>
 
-      <div
-        class="mt-6 flex flex-wrap items-center gap-3 border-t border-neutral-200 pt-5 dark:border-neutral-800"
-      >
+      <div class="mt-6 flex flex-wrap items-center gap-3 border-t border-hairline pt-5">
         <button
           type="button"
           class="ui-btn-primary px-4 py-2 text-sm"
@@ -332,10 +323,10 @@ const openSettings = () => {
         </button>
         <span class="text-sm ui-text-muted">
           Status:
-          <span v-if="store.llmStatus.unauthorized" class="text-amber-600 dark:text-amber-400">
+          <span v-if="store.llmStatus.unauthorized" class="ui-text-warn">
             Unauthorized — check the API key in Settings
           </span>
-          <span v-else class="text-amber-600 dark:text-amber-400">Waiting for Ollama</span>
+          <span v-else class="ui-text-warn">Waiting for Ollama</span>
         </span>
       </div>
     </div>

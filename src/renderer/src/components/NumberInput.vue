@@ -79,13 +79,13 @@ const onInput = (event: Event) => {
       @input="onInput"
     />
     <div
-      class="absolute inset-y-0 right-0 flex w-7 flex-col overflow-hidden rounded-r-lg border-l border-neutral-300 dark:border-neutral-700"
+      class="absolute inset-y-0 right-0 flex w-7 flex-col overflow-hidden rounded-r-lg border-l border-edge"
     >
       <button
         type="button"
         tabindex="-1"
         aria-label="Increase value"
-        class="flex flex-1 items-center justify-center border-b border-neutral-300 bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700"
+        class="ui-text-muted flex flex-1 items-center justify-center border-b border-hairline bg-inset hover:text-strong"
         @mousedown.prevent
         @click="stepBy(step)"
       >
@@ -97,7 +97,7 @@ const onInput = (event: Event) => {
         type="button"
         tabindex="-1"
         aria-label="Decrease value"
-        class="flex flex-1 items-center justify-center bg-neutral-100 text-neutral-600 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-700"
+        class="ui-text-muted flex flex-1 items-center justify-center bg-inset hover:text-strong"
         @mousedown.prevent
         @click="stepBy(-step)"
       >

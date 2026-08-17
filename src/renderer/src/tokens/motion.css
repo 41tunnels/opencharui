@@ -1,0 +1,14 @@
+/* Synced from claude.ai/design — "41tunnels Design System" · tokens/motion.css */
+:root {
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 90ms;   /* hover, press */
+  --dur-base: 160ms;  /* panels, disclosure */
+  --dur-slow: 240ms;  /* dialog, route change */
+  --transition-ui: color var(--dur-fast) var(--ease-standard),
+                   background-color var(--dur-fast) var(--ease-standard),
+                   border-color var(--dur-fast) var(--ease-standard),
+                   opacity var(--dur-fast) var(--ease-standard);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+}

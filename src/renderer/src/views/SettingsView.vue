@@ -37,9 +37,9 @@ const syncStatusText = computed(() => {
     case 'error':
       return syncStatus.value.error ?? 'Sync failed'
     case 'unsupported':
-      return 'This amallo version does not support sync'
+      return 'This Amallo version does not support sync'
     case 'disabled':
-      return 'Device sync needs an amallo connection'
+      return 'Device sync needs an Amallo connection'
     default:
       return syncStatus.value.lastSyncedAt
         ? `Last synced ${formatRelativeTime(syncStatus.value.lastSyncedAt)}`
@@ -47,14 +47,17 @@ const syncStatusText = computed(() => {
   }
 })
 
+// The status ramp, not a colour per state: ok, warn, or the neutral "off" dot.
+// An error keeps the warn dot and says so in words rather than turning red.
 const syncStatusClass = computed(() => {
   switch (syncStatus.value.state) {
-    case 'error':
-      return 'text-red-600 dark:text-red-400'
-    case 'unsupported':
-      return 'text-amber-600 dark:text-amber-400'
+    case 'idle':
+      return syncStatus.value.lastSyncedAt ? 'ui-status-ok' : ''
+    case 'disabled':
+      return ''
     default:
-      return 'ui-text-muted'
+      // syncing, error and unsupported are all "in flight or needs attention".
+      return 'ui-status-warn'
   }
 })
 
@@ -126,10 +129,10 @@ const refreshOllama = async () => {
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
     <div class="mx-auto w-full max-w-lg space-y-6">
-      <h2 class="text-xl font-semibold">Settings</h2>
+      <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">Settings</h2>
 
       <label class="block">
-        <span class="mb-1 block text-sm ui-text-muted">System prompt</span>
+        <span class="ui-eyebrow mb-1.5 block">System prompt</span>
         <textarea
           ref="systemPromptTextarea"
           v-model="settings.systemPrompt"
@@ -138,31 +141,31 @@ const refreshOllama = async () => {
           placeholder="Global roleplay instructions applied to every chat..."
           @input="fitSystemPromptHeight"
         />
-        <p class="mt-1 text-xs ui-text-subtle">
+        <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
           Applied to all chats. Character and persona details are appended automatically. Use
-          <code class="text-neutral-700 dark:text-neutral-300" v-pre>{{char}}</code> for the character name and
-          <code class="text-neutral-700 dark:text-neutral-300" v-pre>{{user}}</code> for the persona name.
+          <code class="ui-mono-sm ui-text-strong" v-pre>{{ char }}</code> for the character name and
+          <code class="ui-mono-sm ui-text-strong" v-pre>{{ user }}</code> for the persona name.
         </p>
       </label>
 
-      <div class="rounded-xl border border-neutral-200 bg-neutral-100/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+      <div class="ui-card p-5">
         <h3 class="mb-2 text-sm font-medium">Ollama</h3>
         <label class="mb-3 block">
-          <span class="mb-1 block text-sm ui-text-muted">Ollama URL</span>
+          <span class="ui-eyebrow mb-1.5 block">Ollama URL</span>
           <input
             v-model="settings.ollamaUrl"
             type="url"
             class="ui-input w-full px-3 py-2 text-sm"
             :placeholder="DEFAULT_OLLAMA_URL"
           />
-          <p class="mt-1 text-xs ui-text-subtle">
-            Leave empty to use the default
-            (<code class="text-neutral-700 dark:text-neutral-300">/ollama</code> in dev,
-            <code class="text-neutral-700 dark:text-neutral-300">{{ DEFAULT_OLLAMA_URL }}</code> in production).
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+            Leave empty to use the default (<code class="ui-mono-sm ui-text-strong">/ollama</code>
+            in dev, <code class="ui-mono-sm ui-text-strong">{{ DEFAULT_OLLAMA_URL }}</code> in
+            production).
           </p>
         </label>
         <label class="mb-3 block">
-          <span class="mb-1 block text-sm ui-text-muted">API key</span>
+          <span class="ui-eyebrow mb-1.5 block">API key</span>
           <input
             v-model="settings.ollamaApiKey"
             type="password"
@@ -170,9 +173,9 @@ const refreshOllama = async () => {
             class="ui-input w-full px-3 py-2 text-sm"
             placeholder="Leave empty for a local Ollama without auth"
           />
-          <p class="mt-1 text-xs ui-text-subtle">
-            Sent as <code class="text-neutral-700 dark:text-neutral-300">Authorization: Bearer …</code>
-            — required for amallo instances.
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+            Sent as <code class="ui-mono-sm ui-text-strong">Authorization: Bearer …</code>
+            — required for Amallo instances.
           </p>
         </label>
         <p class="mb-3 text-sm ui-text-muted">
@@ -181,44 +184,51 @@ const refreshOllama = async () => {
             href="https://ollama.com"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-neutral-800 underline dark:text-neutral-200"
+            class="ui-text-accent"
             >Ollama</a
           >
-          locally, then pull a model (e.g. <code class="text-neutral-700 dark:text-neutral-300">ollama pull llama3.2</code>).
+          locally, then pull a model (e.g.
+          <code class="ui-mono-sm ui-text-strong">ollama pull llama3.2</code>).
         </p>
         <p class="mb-3 text-sm ui-text-muted">
           For remote or custom hosts, set the full base URL (e.g.
-          <code class="text-neutral-700 dark:text-neutral-300">http://192.168.1.10:11434</code>).
-          Set <code class="text-neutral-700 dark:text-neutral-300">OLLAMA_ORIGINS=*</code> on the server if the browser reports CORS errors.
-          To reach an Ollama exposed via amallo from anywhere, pair with it below instead.
+          <code class="ui-mono-sm ui-text-strong">http://192.168.1.10:11434</code>). Set
+          <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS=*</code> on the server if the
+          browser reports CORS errors. To reach an Ollama exposed via Amallo from anywhere, pair
+          with it below instead.
         </p>
-        <p class="text-sm">
-          Status:
-          <span v-if="store.llmStatus.ollamaAvailable" class="text-green-600 dark:text-green-400">Connected</span>
-          <span v-else-if="store.llmStatus.unauthorized" class="text-amber-600 dark:text-amber-400">
-            Unauthorized — check API key
-          </span>
-          <span v-else class="text-red-600 dark:text-red-400">Not connected</span>
-        </p>
-        <button
-          class="ui-btn-outline mt-3 px-3 py-1.5 text-sm"
-          @click="refreshOllama"
+        <span
+          class="ui-status"
+          :class="
+            store.llmStatus.ollamaAvailable
+              ? 'ui-status-ok'
+              : store.llmStatus.unauthorized
+                ? 'ui-status-warn'
+                : ''
+          "
         >
+          <span class="ui-status-dot" />
+          <span v-if="store.llmStatus.ollamaAvailable">connected</span>
+          <span v-else-if="store.llmStatus.unauthorized">unauthorized — check API key</span>
+          <span v-else>not connected</span>
+        </span>
+        <button class="ui-btn-outline mt-3 px-3 py-1.5 text-sm" @click="refreshOllama">
           Detect Ollama
         </button>
       </div>
 
       <PairingPanel />
 
-      <div class="rounded-xl border border-neutral-200 bg-neutral-100/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
+      <div class="ui-card p-5">
         <h3 class="mb-2 text-sm font-medium">Device sync</h3>
         <p class="mb-3 text-sm ui-text-muted">
-          Sync your characters, personas and chats across every device connected to the same
-          amallo instance. Syncs automatically on launch and after changes.
+          Sync your characters, personas and chats across every device connected to the same Amallo
+          instance. Syncs automatically on launch and after changes.
         </p>
-        <p class="text-sm">
-          Status: <span :class="syncStatusClass">{{ syncStatusText }}</span>
-        </p>
+        <span class="ui-status" :class="syncStatusClass">
+          <span class="ui-status-dot" />
+          <span>{{ syncStatusText }}</span>
+        </span>
         <button
           class="ui-btn-outline mt-3 px-3 py-1.5 text-sm"
           :disabled="!canSync || syncing"
@@ -229,26 +239,15 @@ const refreshOllama = async () => {
       </div>
 
       <div class="flex flex-wrap gap-3">
-        <button
-          class="ui-btn-primary px-4 py-2 text-sm"
-          @click="save"
-        >
-          Save settings
-        </button>
-        <button
-          class="ui-btn-outline px-4 py-2 text-sm"
-          @click="importCharacter"
-        >
+        <button class="ui-btn-primary px-4 py-2 text-sm" @click="save">Save settings</button>
+        <button class="ui-btn-outline px-4 py-2 text-sm" @click="importCharacter">
           Import character (JSON or PNG)
         </button>
-        <button
-          class="ui-btn-outline px-4 py-2 text-sm"
-          @click="importPersona"
-        >
+        <button class="ui-btn-outline px-4 py-2 text-sm" @click="importPersona">
           Import persona JSON
         </button>
-        <span v-if="saved" class="self-center text-sm text-green-600 dark:text-green-400">Saved</span>
-        <span v-if="saveError" class="self-center text-sm text-red-600 dark:text-red-400">{{ saveError }}</span>
+        <span v-if="saved" class="self-center text-sm ui-text-strong">Saved</span>
+        <span v-if="saveError" class="self-center text-sm ui-text-accent">{{ saveError }}</span>
       </div>
     </div>
   </div>

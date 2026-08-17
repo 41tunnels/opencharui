@@ -1,0 +1,65 @@
+/* Synced from claude.ai/design — "41tunnels Design System" · tokens/colors.css
+   Keep verbatim so future design-system pulls stay diffable. */
+:root {
+  /* ---- base ---- */
+  --ink-900: #0E1113;   /* deepest surface — code wells, hero */
+  --ink-800: #14181A;   /* brand ink — primary dark surface & text */
+  --ink-700: #1B1F21;
+  --ink-600: #262B2E;   /* hairlines on dark */
+  --ink-500: #3A4043;   /* borders on dark */
+  --ink-400: #4E5558;   /* muted text on dark */
+  --ink-300: #7C8487;
+  --ink-200: #9AA1A4;   /* secondary text on dark */
+  --ink-100: #C9CDCE;   /* body text on dark */
+
+  --paper-000: #FFFFFF;
+  --paper-100: #F7F6F3;  /* brand paper — primary light surface */
+  --paper-200: #EDEAE4;  /* raised / inset light surface */
+  --paper-300: #E4E0D9;  /* borders on light */
+  --paper-400: #D6D1C8;
+  --slate-600: #5F6A6E;  /* secondary text on light */
+  --slate-700: #3C4448;  /* body text on light */
+
+  /* ---- accent: low-chroma copper ---- */
+  --copper-600: #8E4A20; /* pressed / visited */
+  --copper-500: #B4602C; /* accent on light — 4.6:1 on paper-100 */
+  --copper-400: #E08B4D; /* accent on dark  — 6.8:1 on ink-800 */
+  --copper-050: #F4E7DC; /* tint fill on light */
+
+  /* ---- semantic status (used sparingly, never as decoration) ---- */
+  --status-ok: #4E7A52;
+  --status-ok-dark: #86B98B;
+  --status-warn: #9A7420;
+  --status-warn-dark: #D6AE4E;
+  --status-off: #9AA1A4;
+
+  /* ---- semantic aliases: light surface (default) ---- */
+  --surface-page: var(--paper-100);
+  --surface-card: var(--paper-000);
+  --surface-inset: var(--paper-200);
+  --surface-code: var(--ink-900);
+  --border-hairline: var(--paper-300);
+  --border-strong: var(--paper-400);
+  --text-body: var(--slate-700);
+  --text-strong: var(--ink-800);
+  --text-muted: var(--slate-600);
+  --text-faint: #9AA1A4;
+  --text-accent: var(--copper-500);
+  --focus-ring: var(--copper-500);
+}
+
+/* ---- semantic aliases: dark surface ---- */
+[data-surface="dark"] {
+  --surface-page: var(--ink-800);
+  --surface-card: var(--ink-700);
+  --surface-inset: var(--ink-900);
+  --surface-code: var(--ink-900);
+  --border-hairline: var(--ink-600);
+  --border-strong: var(--ink-500);
+  --text-body: var(--ink-100);
+  --text-strong: var(--paper-100);
+  --text-muted: var(--ink-200);
+  --text-faint: var(--ink-400);
+  --text-accent: var(--copper-400);
+  --focus-ring: var(--copper-400);
+}

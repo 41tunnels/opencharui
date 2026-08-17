@@ -7,6 +7,7 @@ import { safeParseCharacter } from '@shared/character-schema'
 import { formatRelativeTime } from '@shared/format-time'
 import { useAppStore } from '@renderer/stores/app'
 import SidebarSection from '@renderer/components/SidebarSection.vue'
+import BrandEndorsement from '@renderer/components/BrandEndorsement.vue'
 
 const router = useRouter()
 const store = useAppStore()
@@ -48,9 +49,7 @@ const editPersona = (id: string) => {
 
 const deleteCharacter = async (id: string, name: string) => {
   if (
-    !confirm(
-      `Delete "${name}"? This character and all of their chats will be permanently removed.`
-    )
+    !confirm(`Delete "${name}"? This character and all of their chats will be permanently removed.`)
   ) {
     return
   }
@@ -194,6 +193,18 @@ const importCharacterFromFile = async () => {
         : 'translate-x-0 md:w-64'
     "
   >
+    <!-- The app had no branding anywhere. A PWA installs into a window with a name
+         in it, and 44px is a cheap price for saying which app this is. -->
+    <div class="flex h-11 shrink-0 items-center border-b border-hairline px-3">
+      <button
+        type="button"
+        class="ui-text-strong text-[15px] font-medium tracking-tight"
+        @click="router.push({ name: 'home' })"
+      >
+        OpenCharUI
+      </button>
+    </div>
+
     <SidebarSection
       title="Characters"
       :open="store.uiState.sidebarSections.characters"
@@ -203,14 +214,15 @@ const importCharacterFromFile = async () => {
       <div
         v-for="character in store.characters"
         :key="character.id"
-        class="group flex items-center gap-0.5 rounded-lg ui-hover-row"
+        class="group flex items-center gap-0.5 ui-hover-row"
       >
         <button
           class="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm"
           @click="startChat(character.id)"
         >
           <span
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+            class="ui-mono-sm ui-text-muted flex h-[26px] w-[26px] shrink-0 items-center justify-center border border-hairline bg-inset"
+            style="border-radius: var(--radius-1)"
           >
             {{ character.name.charAt(0).toUpperCase() }}
           </span>
@@ -221,7 +233,7 @@ const importCharacterFromFile = async () => {
         >
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-1 text-xs ui-text-subtle hover:bg-neutral-200 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            class="ui-micro ui-micro-bare shrink-0"
             title="Edit character"
             @click.stop="editCharacter(character.id)"
           >
@@ -229,7 +241,7 @@ const importCharacterFromFile = async () => {
           </button>
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-1 text-xs ui-text-subtle hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+            class="ui-micro ui-micro-bare ui-micro-danger shrink-0"
             title="Delete character"
             @click.stop="deleteCharacter(character.id, character.name)"
           >
@@ -237,7 +249,7 @@ const importCharacterFromFile = async () => {
           </button>
         </div>
       </div>
-      <p v-if="store.characters.length === 0" class="px-3 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+      <p v-if="store.characters.length === 0" class="ui-mono-sm ui-text-subtle px-3 py-2">
         No characters yet
       </p>
     </div>
@@ -251,14 +263,15 @@ const importCharacterFromFile = async () => {
       <div
         v-for="persona in store.personas"
         :key="persona.id"
-        class="group flex items-center gap-0.5 rounded-lg ui-hover-row"
+        class="group flex items-center gap-0.5 ui-hover-row"
       >
         <button
           class="flex min-w-0 flex-1 items-center gap-2 px-3 py-2 text-left text-sm"
           @click="editPersona(persona.id)"
         >
           <span
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+            class="ui-mono-sm ui-text-muted flex h-[26px] w-[26px] shrink-0 items-center justify-center border border-hairline bg-inset"
+            style="border-radius: var(--radius-1)"
           >
             {{ persona.name.charAt(0).toUpperCase() }}
           </span>
@@ -269,7 +282,7 @@ const importCharacterFromFile = async () => {
         >
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-1 text-xs ui-text-subtle hover:bg-neutral-200 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            class="ui-micro ui-micro-bare shrink-0"
             title="Edit persona"
             @click.stop="editPersona(persona.id)"
           >
@@ -277,7 +290,7 @@ const importCharacterFromFile = async () => {
           </button>
           <button
             type="button"
-            class="shrink-0 rounded-md px-1.5 py-1 text-xs ui-text-subtle hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+            class="ui-micro ui-micro-bare ui-micro-danger shrink-0"
             title="Delete persona"
             @click.stop="deletePersona(persona.id, persona.name)"
           >
@@ -285,7 +298,7 @@ const importCharacterFromFile = async () => {
           </button>
         </div>
       </div>
-      <p v-if="store.personas.length === 0" class="px-3 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+      <p v-if="store.personas.length === 0" class="ui-mono-sm ui-text-subtle px-3 py-2">
         No personas yet
       </p>
     </div>
@@ -300,7 +313,7 @@ const importCharacterFromFile = async () => {
         <div
           v-for="chat in store.chats"
           :key="chat.id"
-          class="group flex items-center gap-0.5 rounded-lg ui-hover-row"
+          class="group flex items-center gap-0.5 ui-hover-row"
           :class="store.activeChat?.id === chat.id ? 'ui-active-row' : ''"
         >
           <button
@@ -312,7 +325,7 @@ const importCharacterFromFile = async () => {
               v-if="chat.lastMessageAt"
               :datetime="new Date(chat.lastMessageAt).toISOString()"
               :title="new Date(chat.lastMessageAt).toLocaleString()"
-              class="truncate text-xs ui-text-subtle"
+              class="ui-mono-sm ui-text-subtle truncate"
             >
               {{ formatRelativeTime(chat.lastMessageAt) }}
             </time>
@@ -322,7 +335,7 @@ const importCharacterFromFile = async () => {
           >
             <button
               type="button"
-              class="shrink-0 rounded-md px-1.5 py-1 text-xs ui-text-subtle hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+              class="ui-micro ui-micro-bare ui-micro-danger shrink-0"
               title="Delete chat"
               @click.stop="deleteChat(chat.id, chat.title)"
             >
@@ -330,17 +343,13 @@ const importCharacterFromFile = async () => {
             </button>
           </div>
         </div>
-        <p v-if="store.chats.length === 0" class="px-3 py-2 text-xs text-neutral-400 dark:text-neutral-600">
+        <p v-if="store.chats.length === 0" class="ui-mono-sm ui-text-subtle px-3 py-2">
           No chats yet
         </p>
       </div>
 
-      <div class="shrink-0 border-t border-neutral-200 px-2 py-2 dark:border-neutral-800">
-        <button
-          type="button"
-          class="ui-btn-outline w-full px-3 py-2 text-sm"
-          @click="toggleImport"
-        >
+      <div class="shrink-0 border-t border-hairline px-2 py-2">
+        <button type="button" class="ui-btn-outline w-full px-3 py-2 text-sm" @click="toggleImport">
           {{ showImport ? 'Cancel import' : '+ Import chat JSON' }}
         </button>
 
@@ -348,7 +357,7 @@ const importCharacterFromFile = async () => {
           <textarea
             v-model="importJson"
             rows="8"
-            class="ui-input w-full p-2 font-mono text-xs"
+            class="ui-input ui-input-mono w-full p-2 text-xs"
             placeholder="Paste chat JSON here..."
           />
           <button
@@ -359,7 +368,7 @@ const importCharacterFromFile = async () => {
           >
             Import
           </button>
-          <p v-if="importError" class="text-xs text-red-600 dark:text-red-400">{{ importError }}</p>
+          <p v-if="importError" class="ui-mono-sm ui-text-accent">{{ importError }}</p>
           <p class="text-xs ui-text-subtle">
             Paste JSON from chat JSON mode. The character and persona must already exist; new ids
             are assigned on import.
@@ -378,7 +387,7 @@ const importCharacterFromFile = async () => {
           <textarea
             v-model="characterImportJson"
             rows="8"
-            class="ui-input w-full p-2 font-mono text-xs"
+            class="ui-input ui-input-mono w-full p-2 text-xs"
             placeholder="Paste character JSON here..."
           />
           <button
@@ -397,7 +406,7 @@ const importCharacterFromFile = async () => {
           >
             Import JSON or PNG file
           </button>
-          <p v-if="characterImportError" class="text-xs text-red-600 dark:text-red-400">
+          <p v-if="characterImportError" class="ui-mono-sm ui-text-accent">
             {{ characterImportError }}
           </p>
           <p class="text-xs ui-text-subtle">
@@ -408,7 +417,7 @@ const importCharacterFromFile = async () => {
       </div>
     </div>
 
-    <div class="mt-auto shrink-0 space-y-2 border-t border-neutral-200 p-3 dark:border-neutral-800">
+    <div class="mt-auto shrink-0 space-y-2 border-t border-hairline p-3">
       <button
         class="ui-btn-outline w-full px-3 py-2 text-sm"
         @click="router.push({ name: 'character-new' })"
@@ -421,17 +430,21 @@ const importCharacterFromFile = async () => {
       >
         + New Persona
       </button>
+      <div class="flex justify-center pt-1.5">
+        <BrandEndorsement />
+      </div>
     </div>
   </aside>
 
   <div
     v-if="pendingCharacterId"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    style="background: rgb(14 17 19 / 0.55)"
     @click.self="pendingCharacterId = null"
   >
-    <div class="ui-surface w-full max-w-sm rounded-2xl border p-4 shadow-xl">
+    <div class="ui-card w-full max-w-sm p-5" style="box-shadow: var(--shadow-panel)">
       <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="text-base font-semibold">Choose persona</h2>
+        <h2 class="ui-text-strong text-[17px] font-semibold">Choose persona</h2>
         <button
           type="button"
           class="ui-btn-ghost px-2 py-1 text-sm"
@@ -445,11 +458,11 @@ const importCharacterFromFile = async () => {
           v-for="persona in store.personas"
           :key="persona.id"
           type="button"
-          class="ui-hover-row flex w-full flex-col rounded-lg px-3 py-2 text-left"
+          class="ui-hover-row flex w-full flex-col px-3 py-2 text-left"
           @click="startChatWithPersona(persona.id)"
         >
           <span class="text-sm font-medium">{{ persona.name }}</span>
-          <span v-if="persona.description" class="mt-0.5 line-clamp-2 text-xs ui-text-subtle">
+          <span v-if="persona.description" class="ui-text-muted mt-1 line-clamp-2 text-xs">
             {{ persona.description }}
           </span>
         </button>

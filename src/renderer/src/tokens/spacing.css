@@ -1,0 +1,19 @@
+/* Synced from claude.ai/design — "41tunnels Design System" · tokens/spacing.css */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 22px;
+  --space-6: 28px;
+  --space-7: 36px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 72px;
+  --space-11: 96px;
+
+  --gutter: var(--space-8);
+  --section-y: var(--space-10);
+  --container: 1240px;
+  --container-narrow: 880px;
+}

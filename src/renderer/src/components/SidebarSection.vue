@@ -5,7 +5,7 @@ defineEmits<{ toggle: [] }>()
 
 <template>
   <button
-    class="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide ui-text-subtle hover:text-neutral-700 dark:hover:text-neutral-300"
+    class="ui-eyebrow flex w-full items-center justify-between px-3 pb-1.5 pt-2.5 text-left hover:text-strong"
     @click="$emit('toggle')"
   >
     <span>{{ title }}</span>
@@ -15,7 +15,7 @@ defineEmits<{ toggle: [] }>()
       fill="none"
       stroke="currentColor"
       stroke-width="2"
-      class="h-3.5 w-3.5 shrink-0 transition-transform duration-200"
+      class="h-3 w-3 shrink-0 transition-transform duration-200"
       :class="open ? 'rotate-90' : ''"
       aria-hidden="true"
     >

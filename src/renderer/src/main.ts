@@ -7,6 +7,16 @@ import { applyTheme, readCachedTheme } from '@shared/theme'
 import { useAppStore } from '@renderer/stores/app'
 import App from './App.vue'
 import router from './router'
+// IBM Plex Sans + IBM Plex Mono, self-hosted from the bundle. The design system's
+// own fonts.css imports these from fonts.googleapis.com; this app must not make a
+// third-party request on first paint, so it carries the same faces itself.
+// Sans 400/500/600 + 400 italic (thought text), mono 400/500.
+import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-400-italic.css'
+import '@fontsource/ibm-plex-sans/latin-500.css'
+import '@fontsource/ibm-plex-sans/latin-600.css'
+import '@fontsource/ibm-plex-mono/latin-400.css'
+import '@fontsource/ibm-plex-mono/latin-500.css'
 import './app.css'
 
 applyTheme(readCachedTheme() ?? 'light')

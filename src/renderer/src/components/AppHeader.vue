@@ -9,7 +9,7 @@ const store = useAppStore()
 
 const providerLabel = computed(() => (store.llmStatus.usingAmallo ? 'Amallo' : 'Ollama'))
 
-// The relay keeps one client per pairing, so opening the app in a second
+// The Relay keeps one client per pairing, so opening the app in a second
 // tab or on a phone takes this one's place. Rather than grabbing it
 // straight back — which just starts a tug of war neither side wins — the
 // displaced side says so and waits to be told to take over.
@@ -88,25 +88,23 @@ const newChat = async () => {
         />
       </svg>
     </button>
-    <div class="flex items-center gap-2 text-sm" :title="connectionTitle">
-      <span
-        class="inline-block h-2 w-2 rounded-full"
-        :class="
-          isDisplaced
-            ? 'bg-amber-500'
-            : store.llmStatus.ollamaAvailable
-              ? 'bg-green-500'
-              : 'bg-red-500'
-        "
-      />
+    <!-- The palette's status ramp has no red: a disconnected provider is an "off"
+         dot, not an alarm. Displaced (in use elsewhere) is the warn step. -->
+    <div
+      class="ui-status min-w-0"
+      :class="
+        isDisplaced ? 'ui-status-warn' : store.llmStatus.ollamaAvailable ? 'ui-status-ok' : ''
+      "
+      :title="connectionTitle"
+    >
+      <span class="ui-status-dot" />
       <template v-if="isDisplaced">
-        <span class="ui-text-muted hidden md:inline">Open in another tab</span>
-        <button type="button" class="ui-btn-ghost px-2 py-0.5 text-xs" @click="reclaimRelay">
-          Use here
-        </button>
+        <span class="hidden md:inline">open in another tab</span>
+        <button type="button" class="ui-micro ui-micro-bare" @click="reclaimRelay">Use here</button>
       </template>
-      <span v-else class="ui-text-muted hidden md:inline">
-        {{ providerLabel }} {{ store.llmStatus.ollamaAvailable ? 'connected' : 'not connected' }}
+      <span v-else class="hidden truncate md:inline">
+        {{ providerLabel }}
+        {{ store.llmStatus.ollamaAvailable ? 'connected' : 'not connected' }}
       </span>
     </div>
     <div class="ml-auto flex items-center gap-1 md:gap-2">

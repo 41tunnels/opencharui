@@ -1,3 +1,21 @@
+/* ---------------------------------------------------------------------------
+   41tunnels design system
+
+   tokens/*.css are verbatim copies of the claude.ai/design project — see
+   tokens/README.md. They stay unlayered so they win over Tailwind's own
+   defaults, which is what lets tokens/typography.css redefine --font-sans and
+   --font-mono for Tailwind's font-sans / font-mono utilities.
+
+   The component classes below are the app's own contract. They mirror the t-*
+   classes in the design system's tokens/components.css, under the ui-* names
+   this codebase already uses, so templates did not have to be renamed.
+   --------------------------------------------------------------------------- */
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/shape.css';
+@import './tokens/motion.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,18 +27,27 @@ body,
   margin: 0;
 }
 
-html.light,
-html.light body {
-  color-scheme: light;
-  background-color: rgb(250 250 250);
-  color: rgb(23 23 23);
+/* Surfaces come from the tokens, which [data-surface="dark"] on <html>
+   re-resolves. color-scheme is still set per theme so form controls and the
+   native scrollbar follow. */
+html {
+  background-color: var(--surface-page);
+  color: var(--text-body);
 }
 
-html.dark,
-html.dark body {
+html.light {
+  color-scheme: light;
+}
+
+html.dark {
   color-scheme: dark;
-  background-color: rgb(10 10 10);
-  color: rgb(245 245 245);
+}
+
+body {
+  background-color: var(--surface-page);
+  color: var(--text-body);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -29,51 +56,288 @@ html.dark body {
 
 @layer components {
   .ui-shell {
-    @apply bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100;
+    background-color: var(--surface-page);
+    color: var(--text-body);
   }
 
+  /* Header, sidebar and chat sub-header: a page-coloured plane whose only
+     boundary is a hairline. */
   .ui-surface {
-    @apply border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950;
+    background-color: var(--surface-page);
+    border-color: var(--border-hairline);
   }
 
+  /* A raised container — cards, panels, grouped settings. */
+  .ui-card {
+    background-color: var(--surface-card);
+    border: var(--rule);
+    border-radius: var(--radius-3);
+  }
+
+  .ui-inset {
+    background-color: var(--surface-inset);
+    border: var(--rule);
+    border-radius: var(--radius-2);
+  }
+
+  /* A code well is ink on both themes — commands you paste into a terminal look
+     like a terminal. --surface-code does not flip with the surface. */
+  .ui-code {
+    background-color: var(--surface-code);
+    border: var(--border-width) solid var(--ink-600);
+    border-radius: var(--radius-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    line-height: var(--text-mono-lh);
+    color: var(--ink-100);
+  }
+
+  /* Prose fields — message composer, descriptions, system prompts. Sans, because
+     a human wrote what goes in them. Machine-readable fields (URLs, keys, JSON)
+     add .ui-input-mono or a font-mono utility. */
   .ui-input {
-    @apply rounded-lg border border-neutral-300 bg-white text-neutral-900 outline-none focus:border-neutral-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-500;
+    font-family: var(--font-sans);
+    color: var(--text-strong);
+    background-color: var(--surface-card);
+    border: var(--border-width) solid var(--border-hairline);
+    border-radius: var(--radius-2);
+    outline: none;
+    transition: var(--transition-ui);
   }
 
-  html.light .ui-input {
-    color-scheme: light;
+  .ui-input::placeholder {
+    color: var(--text-faint);
   }
 
-  html.dark .ui-input {
-    color-scheme: dark;
+  .ui-input:focus {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -1px;
+    border-color: transparent;
   }
 
-  .ui-btn-ghost {
-    @apply rounded-lg text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-200;
+  .ui-input-mono {
+    font-family: var(--font-mono);
+    letter-spacing: var(--text-mono-ls);
+  }
+
+  .ui-btn-primary,
+  .ui-btn-outline,
+  .ui-btn-ghost,
+  .ui-btn-danger {
+    font-family: var(--font-sans);
+    font-weight: var(--weight-medium);
+    border-radius: var(--radius-1);
+    border: var(--border-width) solid transparent;
+    transition: var(--transition-ui);
+    white-space: nowrap;
+  }
+
+  .ui-btn-primary:focus-visible,
+  .ui-btn-outline:focus-visible,
+  .ui-btn-ghost:focus-visible,
+  .ui-btn-danger:focus-visible,
+  .ui-micro:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
 
   .ui-btn-primary {
-    @apply rounded-lg bg-neutral-900 font-medium text-neutral-50 hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white;
+    background-color: var(--text-strong);
+    color: var(--surface-page);
+  }
+
+  .ui-btn-primary:hover:not(:disabled) {
+    opacity: 0.86;
   }
 
   .ui-btn-outline {
-    @apply rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-900;
+    background-color: transparent;
+    color: var(--text-strong);
+    border-color: var(--border-strong);
+  }
+
+  .ui-btn-outline:hover:not(:disabled) {
+    background-color: var(--surface-inset);
+  }
+
+  .ui-btn-ghost {
+    background-color: transparent;
+    color: var(--text-muted);
+  }
+
+  .ui-btn-ghost:hover:not(:disabled) {
+    color: var(--text-strong);
+    background-color: var(--surface-inset);
+  }
+
+  /* The palette has no red, and every destructive action here is recoverable by
+     re-import rather than catastrophic — so copper carries them. */
+  .ui-btn-danger {
+    background-color: transparent;
+    color: var(--copper-600);
+    border-color: var(--copper-500);
+  }
+
+  html.dark .ui-btn-danger {
+    color: var(--copper-400);
+    border-color: var(--copper-400);
+  }
+
+  .ui-btn-danger:hover:not(:disabled) {
+    background-color: var(--surface-inset);
+  }
+
+  /* Micro action — the hover-revealed rows under a message and beside a list
+     row. Always mono: every label on one is a machine word. */
+  .ui-micro {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-sm);
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-1);
+    border: var(--border-width) solid var(--border-hairline);
+    background-color: transparent;
+    color: var(--text-muted);
+    transition: var(--transition-ui);
+    white-space: nowrap;
+  }
+
+  .ui-micro:hover:not(:disabled) {
+    color: var(--text-strong);
+    background-color: var(--surface-inset);
+  }
+
+  .ui-micro-bare {
+    border-color: transparent;
+  }
+
+  .ui-micro-danger {
+    color: var(--copper-600);
+  }
+
+  html.dark .ui-micro-danger {
+    color: var(--copper-400);
   }
 
   .ui-text-muted {
-    @apply text-neutral-600 dark:text-neutral-400;
+    color: var(--text-muted);
   }
 
   .ui-text-subtle {
-    @apply text-neutral-500;
+    color: var(--text-faint);
+  }
+
+  .ui-text-strong {
+    color: var(--text-strong);
+  }
+
+  .ui-text-accent {
+    color: var(--text-accent);
+  }
+
+  .ui-text-warn {
+    color: var(--status-warn);
+  }
+
+  html.dark .ui-text-warn {
+    color: var(--status-warn-dark);
+  }
+
+  /* Hairlines do the work in this system; shadows only float. */
+  .ui-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
+  /* Mono micro-copy: timestamps, model ids, token counts, byte sizes. */
+  .ui-mono {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    letter-spacing: var(--text-mono-ls);
+  }
+
+  .ui-mono-sm {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-sm);
+  }
+
+  /* Section and field labels. */
+  .ui-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-sm);
+    letter-spacing: var(--text-eyebrow-ls);
+    text-transform: uppercase;
+    color: var(--text-muted);
   }
 
   .ui-hover-row {
-    @apply hover:bg-neutral-100 dark:hover:bg-neutral-900;
+    border-radius: var(--radius-1);
   }
 
+  .ui-hover-row:hover {
+    background-color: var(--surface-inset);
+  }
+
+  /* The active row is marked by a copper bar inside its left edge — one of the
+     four places the accent is spent. */
   .ui-active-row {
-    @apply bg-neutral-100 dark:bg-neutral-900;
+    background-color: var(--surface-inset);
+    box-shadow: inset 2px 0 0 var(--text-accent);
+  }
+
+  .ui-status {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-mono);
+    color: var(--text-muted);
+  }
+
+  .ui-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--status-off);
+    flex: none;
+  }
+
+  .ui-status-ok .ui-status-dot {
+    background-color: var(--status-ok);
+  }
+
+  html.dark .ui-status-ok .ui-status-dot {
+    background-color: var(--status-ok-dark);
+  }
+
+  .ui-status-warn .ui-status-dot {
+    background-color: var(--status-warn);
+  }
+
+  html.dark .ui-status-warn .ui-status-dot {
+    background-color: var(--status-warn-dark);
+  }
+
+  .ui-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: var(--text-mono-sm);
+    line-height: 1;
+    padding: 5px 8px;
+    border-radius: var(--radius-1);
+    background-color: var(--surface-inset);
+    color: var(--text-muted);
+  }
+
+  .ui-badge-accent {
+    background-color: var(--copper-050);
+    color: var(--copper-600);
+  }
+
+  html.dark .ui-badge-accent {
+    background-color: rgb(224 139 77 / 0.14);
+    color: var(--copper-400);
   }
 
   .ui-hover-reveal {
@@ -83,6 +347,7 @@ html.dark body {
   @media (hover: hover) and (pointer: fine) {
     .ui-hover-reveal {
       @apply pointer-events-none opacity-0;
+      transition: opacity var(--dur-fast) var(--ease-standard);
     }
 
     .group:hover .ui-hover-reveal,
@@ -91,61 +356,25 @@ html.dark body {
     }
   }
 
+  /* In-message formatting. Thought and speech are separated typographically,
+     not chromatically: the palette has one accent and it is not spent on prose.
+     Reduced opacity also survives the inverted user bubble, which the old
+     purple did not. */
   .thought-text {
-    @apply italic;
-  }
-
-  .quote-text {
-    @apply font-semibold;
-  }
-
-  .quote-text::before,
-  .quote-text::after {
+    font-style: italic;
     opacity: 0.7;
   }
 
+  .quote-text {
+    font-weight: var(--weight-semibold);
+  }
+
   .quote-text::before {
-    content: '"';
+    content: '\201C';
   }
 
   .quote-text::after {
-    content: '"';
-  }
-
-  html.light .chat-bubble-assistant .spoken-text,
-  html.light .chat-bubble-assistant .quote-text {
-    color: rgb(0 0 0);
-  }
-
-  html.light .chat-bubble-assistant .thought-text {
-    color: rgb(128 96 192);
-  }
-
-  html.light .chat-bubble-user .spoken-text,
-  html.light .chat-bubble-user .quote-text {
-    color: rgb(250 250 250);
-  }
-
-  html.light .chat-bubble-user .thought-text {
-    color: rgb(216 180 254);
-  }
-
-  html.dark .chat-bubble-assistant .spoken-text,
-  html.dark .chat-bubble-assistant .quote-text {
-    color: rgb(245 245 245);
-  }
-
-  html.dark .chat-bubble-assistant .thought-text {
-    color: rgb(167 139 250);
-  }
-
-  html.dark .chat-bubble-user .spoken-text,
-  html.dark .chat-bubble-user .quote-text {
-    color: rgb(245 245 245);
-  }
-
-  html.dark .chat-bubble-user .thought-text {
-    color: rgb(196 181 253);
+    content: '\201D';
   }
 }
 
@@ -154,12 +383,8 @@ html.dark body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(212 212 212);
-  border-radius: 4px;
-}
-
-html.dark ::-webkit-scrollbar-thumb {
-  background: rgb(64 64 64);
+  background: var(--border-strong);
+  border-radius: var(--radius-1);
 }
 
 .ui-number-input::-webkit-inner-spin-button,

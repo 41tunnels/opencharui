@@ -166,41 +166,34 @@ const goBack = () => {
     <div class="mx-auto w-full max-w-2xl space-y-6">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-xl font-semibold">Models</h2>
+          <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">Models</h2>
           <p class="mt-1 text-sm ui-text-muted">Manage Ollama models installed on this machine.</p>
         </div>
         <button type="button" class="ui-btn-ghost text-sm" @click="goBack">Back</button>
       </div>
 
-      <div
-        v-if="!ollamaAvailable"
-        class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
-      >
+      <div v-if="!ollamaAvailable" class="ui-card border-edge p-5 text-sm text-accent">
         Ollama is not connected. Install and run
-        <a
-          href="https://ollama.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="underline"
+        <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" class="underline"
           >Ollama</a
         >
         locally. For production, set
-        <code class="text-red-800 dark:text-red-200">OLLAMA_ORIGINS=*</code> so the browser can reach it.
+        <code class="ui-mono-sm ui-text-accent">OLLAMA_ORIGINS=*</code> so the browser can reach it.
       </div>
 
-      <section class="space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-        <h3 class="text-sm font-medium">Download model</h3>
+      <section class="space-y-3 ui-card p-5">
+        <h3 class="ui-text-strong text-[17px] font-semibold">Download model</h3>
         <p class="text-sm ui-text-muted">
           Enter a model name from the
           <a
             href="https://ollama.com/library"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-neutral-800 underline dark:text-neutral-200"
+            class="ui-text-accent"
             >Ollama library</a
           >
-          (e.g. <code class="text-neutral-700 dark:text-neutral-300">llama3.2</code>,
-          <code class="text-neutral-700 dark:text-neutral-300">mistral</code>).
+          (e.g. <code class="ui-mono-sm ui-text-strong">llama3.2</code>,
+          <code class="ui-mono-sm ui-text-strong">mistral</code>).
         </p>
         <div class="flex flex-wrap gap-2">
           <input
@@ -221,10 +214,7 @@ const goBack = () => {
           </button>
         </div>
 
-        <div
-          v-if="pulling && pullProgress"
-          class="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/50"
-        >
+        <div v-if="pulling && pullProgress" class="space-y-2 ui-inset p-4">
           <div class="flex items-center justify-between gap-3 text-sm">
             <span class="capitalize ui-text-muted">{{ pullProgress.status }}</span>
             <button type="button" class="ui-btn-ghost px-2 py-1 text-xs" @click="cancelDownload">
@@ -233,10 +223,10 @@ const goBack = () => {
           </div>
           <div
             v-if="pullProgress.percent !== undefined"
-            class="h-2 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+            class="h-1 overflow-hidden rounded-full bg-edge"
           >
             <div
-              class="h-full rounded-full bg-neutral-800 transition-all duration-300 dark:bg-neutral-200"
+              class="h-full rounded-full bg-strong transition-all duration-300"
               :style="{ width: `${pullProgress.percent}%` }"
             />
           </div>
@@ -249,13 +239,13 @@ const goBack = () => {
           </div>
         </div>
 
-        <p v-if="pullSuccess" class="text-sm text-green-600 dark:text-green-400">Download complete.</p>
-        <p v-if="pullError" class="text-sm text-red-600 dark:text-red-400">{{ pullError }}</p>
+        <p v-if="pullSuccess" class="text-sm ui-text-strong">Download complete.</p>
+        <p v-if="pullError" class="text-sm ui-text-accent">{{ pullError }}</p>
       </section>
 
       <section class="space-y-3">
         <div class="flex items-center justify-between gap-3">
-          <h3 class="text-sm font-medium">Installed models</h3>
+          <h3 class="ui-text-strong text-[17px] font-semibold">Installed models</h3>
           <button
             type="button"
             class="ui-btn-outline px-3 py-1.5 text-sm"
@@ -267,20 +257,16 @@ const goBack = () => {
         </div>
 
         <p v-if="loading" class="text-sm ui-text-muted">Loading models...</p>
-        <p v-else-if="loadError" class="text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
+        <p v-else-if="loadError" class="text-sm ui-text-accent">{{ loadError }}</p>
         <p v-else-if="models.length === 0" class="text-sm ui-text-muted">
           No models installed yet. Download one above or run
-          <code class="text-neutral-700 dark:text-neutral-300">ollama pull &lt;model&gt;</code> in a terminal.
+          <code class="ui-mono-sm ui-text-strong">ollama pull &lt;model&gt;</code> in a terminal.
         </p>
 
-        <p v-if="removeError" class="text-sm text-red-600 dark:text-red-400">{{ removeError }}</p>
+        <p v-if="removeError" class="text-sm ui-text-accent">{{ removeError }}</p>
 
         <ul v-if="!loading && models.length > 0" class="space-y-3">
-          <li
-            v-for="model in models"
-            :key="model.id"
-            class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
-          >
+          <li v-for="model in models" :key="model.id" class="ui-card p-5">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div class="min-w-0">
                 <p class="font-medium">{{ model.name }}</p>
@@ -290,7 +276,7 @@ const goBack = () => {
               </div>
               <button
                 type="button"
-                class="ui-btn-outline px-3 py-1.5 text-sm text-red-600 dark:text-red-400"
+                class="ui-btn-danger px-3 py-1.5 text-sm"
                 :disabled="!ollamaAvailable || removingModelId === model.id"
                 @click="removeModel(model)"
               >
@@ -298,7 +284,7 @@ const goBack = () => {
               </button>
             </div>
             <label class="mt-3 block">
-              <span class="mb-1 block text-xs ui-text-muted">Note</span>
+              <span class="ui-eyebrow mb-1.5 block">Note</span>
               <textarea
                 :value="notes[model.id] ?? ''"
                 rows="2"

@@ -32,7 +32,9 @@ const canvasEl = ref<HTMLCanvasElement | null>(null)
 let stream: MediaStream | null = null
 let rafId: number | null = null
 let detector: BarcodeDetectorLike | null = null
-let decodeQr: ((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null = null
+let decodeQr:
+  ((data: Uint8ClampedArray, width: number, height: number) => { data: string } | null) | null =
+  null
 let unsubscribeStatus: (() => void) | null = null
 
 const stateLabel = computed(() => {
@@ -40,11 +42,11 @@ const stateLabel = computed(() => {
     case 'connecting':
       return 'Connecting…'
     case 'waiting':
-      return 'Waiting for amallo…'
+      return 'Waiting for Amallo…'
     case 'online':
       return 'Connected'
     case 'offline':
-      return 'amallo is offline'
+      return 'Amallo is offline'
     case 'closed':
       return 'Disconnected'
     default:
@@ -52,15 +54,17 @@ const stateLabel = computed(() => {
   }
 })
 
+// The status ramp: connected is ok, in-flight states are warn, and a dropped
+// connection is the neutral "off" dot — the palette keeps no alarm colour.
 const stateClass = computed(() => {
   switch (state.value) {
     case 'online':
-      return 'text-green-600 dark:text-green-400'
+      return 'ui-status-ok'
     case 'offline':
     case 'closed':
-      return 'text-red-600 dark:text-red-400'
+      return ''
     default:
-      return 'text-amber-600 dark:text-amber-400'
+      return 'ui-status-warn'
   }
 })
 
@@ -234,10 +238,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="rounded-xl border border-neutral-200 bg-neutral-100/80 p-4 dark:border-neutral-800 dark:bg-neutral-900/50">
-    <h3 class="mb-2 text-sm font-medium">Remote access (amallo relay)</h3>
+  <div class="ui-card p-5">
+    <h3 class="mb-2 text-sm font-medium">Remote access (Amallo Relay)</h3>
     <p class="mb-3 text-sm ui-text-muted">
-      Pair with one or more amallo instances to chat with your Ollama from anywhere — no network
+      Pair with one or more Amallo instances to chat with your Ollama from anywhere — no network
       setup required. Only the active one is connected at a time.
     </p>
 
@@ -245,8 +249,8 @@ onBeforeUnmount(() => {
       <li
         v-for="row in pairings"
         :key="row.id"
-        class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800"
-        :class="row.active ? 'bg-white dark:bg-neutral-900' : ''"
+        class="ui-inset border-hairline bg-transparent p-4"
+        :class="row.active ? 'bg-card' : ''"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
@@ -260,22 +264,25 @@ onBeforeUnmount(() => {
               />
             </template>
             <template v-else>
-              <p class="truncate text-sm font-medium">
+              <p class="ui-text-strong truncate text-sm font-semibold">
                 {{ row.label }}
-                <span v-if="row.active" class="ml-1 text-xs font-normal text-green-600 dark:text-green-400">
-                  (active)
+                <span v-if="row.active" class="ui-badge ui-badge-accent ml-1.5 align-middle">
+                  active
                 </span>
               </p>
-              <p class="truncate text-xs ui-text-muted">{{ row.relayUrl }}</p>
-              <p v-if="row.active" class="mt-1 text-xs" :class="stateClass">
-                {{ stateLabel ?? 'Unknown' }}
-              </p>
+              <p class="ui-mono-sm ui-text-subtle mt-1 truncate">{{ row.relayUrl }}</p>
+              <span v-if="row.active" class="ui-status mt-1.5" :class="stateClass">
+                <span class="ui-status-dot" />
+                <span>{{ stateLabel ?? 'Unknown' }}</span>
+              </span>
             </template>
           </div>
 
           <div class="flex shrink-0 gap-2">
             <template v-if="renamingId === row.id">
-              <button class="ui-btn-outline px-2 py-1 text-xs" @click="confirmRename(row.id)">Save</button>
+              <button class="ui-btn-outline px-2 py-1 text-xs" @click="confirmRename(row.id)">
+                Save
+              </button>
               <button class="ui-btn-outline px-2 py-1 text-xs" @click="cancelRename">Cancel</button>
             </template>
             <template v-else>
@@ -287,7 +294,9 @@ onBeforeUnmount(() => {
               >
                 {{ switching === row.id ? 'Switching…' : 'Use' }}
               </button>
-              <button class="ui-btn-outline px-2 py-1 text-xs" @click="startRename(row)">Rename</button>
+              <button class="ui-btn-outline px-2 py-1 text-xs" @click="startRename(row)">
+                Rename
+              </button>
               <button
                 class="ui-btn-outline px-2 py-1 text-xs"
                 :disabled="unpairing === row.id"
@@ -300,19 +309,23 @@ onBeforeUnmount(() => {
         </div>
       </li>
     </ul>
-    <p v-else class="mb-3 text-sm ui-text-muted">No relay servers paired yet.</p>
+    <p v-else class="mb-3 text-sm ui-text-muted">No Relay servers paired yet.</p>
 
-    <button v-if="!showAddForm" class="ui-btn-outline mt-3 px-3 py-1.5 text-sm" @click="openAddForm">
-      Add relay server
+    <button
+      v-if="!showAddForm"
+      class="ui-btn-outline mt-3 px-3 py-1.5 text-sm"
+      @click="openAddForm"
+    >
+      Add Relay server
     </button>
 
-    <div v-else class="mt-3 rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+    <div v-else class="mt-3 ui-inset border-hairline bg-transparent p-4">
       <p class="mb-2 text-sm ui-text-muted">
-        Scan or paste the pairing code from amallo's tray menu ("Show Pairing QR…").
+        Scan or paste the pairing code from Amallo's tray menu ("Show Pairing QR…").
       </p>
 
       <label class="mb-3 block text-sm">
-        <span class="mb-1 block font-medium">Name (optional)</span>
+        <span class="ui-eyebrow mb-1.5 block">Name (optional)</span>
         <input
           v-model="nameInput"
           class="ui-input w-full px-3 py-2 text-sm"
@@ -321,8 +334,8 @@ onBeforeUnmount(() => {
       </label>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
-          <p class="text-sm font-medium">Scan QR code</p>
+        <div class="ui-inset border-hairline bg-transparent p-4">
+          <p class="ui-text-strong text-[17px] font-semibold">Scan QR code</p>
           <div v-if="!scanning" class="mt-2">
             <button class="ui-btn-outline px-3 py-1.5 text-sm" @click="startScan">
               Open camera
@@ -336,19 +349,17 @@ onBeforeUnmount(() => {
               playsinline
             />
             <canvas ref="canvasEl" class="hidden" />
-            <button class="ui-btn-outline px-3 py-1.5 text-xs" @click="stopScan">
-              Cancel
-            </button>
+            <button class="ui-btn-outline px-3 py-1.5 text-xs" @click="stopScan">Cancel</button>
           </div>
-          <p v-if="scanError" class="mt-2 text-xs text-red-600 dark:text-red-400">{{ scanError }}</p>
+          <p v-if="scanError" class="mt-2 text-xs ui-text-accent">{{ scanError }}</p>
         </div>
 
-        <div class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
-          <p class="text-sm font-medium">Paste pairing code</p>
+        <div class="ui-inset border-hairline bg-transparent p-4">
+          <p class="ui-text-strong text-[17px] font-semibold">Paste pairing code</p>
           <textarea
             v-model="manualCode"
             rows="3"
-            class="ui-input mt-2 w-full resize-none px-3 py-2 font-mono text-xs"
+            class="ui-input ui-input-mono mt-2 w-full resize-none px-3 py-2 text-xs"
             placeholder="opencharui://pair?v=1&..."
           />
           <button
@@ -361,7 +372,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <p v-if="pairError" class="mt-3 text-xs text-red-600 dark:text-red-400">{{ pairError }}</p>
+      <p v-if="pairError" class="mt-3 text-xs ui-text-accent">{{ pairError }}</p>
 
       <button class="ui-btn-outline mt-3 px-3 py-1.5 text-xs" @click="closeAddForm">Cancel</button>
     </div>

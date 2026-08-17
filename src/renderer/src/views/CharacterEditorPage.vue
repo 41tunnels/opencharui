@@ -139,33 +139,29 @@ const exportChar = async () => {
   <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
     <div class="mx-auto w-full max-w-2xl">
       <div class="mb-6 flex items-center justify-between">
-        <h2 class="text-xl font-semibold">{{ isNew ? 'New Character' : 'Edit Character' }}</h2>
+        <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">
+          {{ isNew ? 'New Character' : 'Edit Character' }}
+        </h2>
         <button class="ui-btn-ghost text-sm" @click="toggleRawMode">
           {{ rawMode ? 'Form mode' : 'JSON mode' }}
         </button>
       </div>
 
       <p v-if="loading" class="mb-4 text-sm ui-text-muted">Loading character...</p>
-      <p v-if="loadError" class="mb-4 text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
+      <p v-if="loadError" class="mb-4 text-sm ui-text-accent">{{ loadError }}</p>
 
       <div v-if="!loading && !loadError && rawMode" class="space-y-4">
-        <textarea
-          v-model="rawJson"
-          rows="24"
-          class="ui-input w-full rounded-xl p-4 font-mono text-sm"
-        />
-        <button class="ui-btn-outline px-4 py-2 text-sm" @click="applyRawJson">
-          Apply JSON
-        </button>
+        <textarea v-model="rawJson" rows="24" class="ui-input ui-input-mono w-full p-4 text-xs" />
+        <button class="ui-btn-outline px-4 py-2 text-sm" @click="applyRawJson">Apply JSON</button>
       </div>
 
       <div v-else-if="!loading && !loadError" :key="form.id" class="space-y-4">
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Name</span>
+          <span class="ui-eyebrow mb-1.5 block">Name</span>
           <input v-model="form.name" type="text" class="ui-input w-full px-3 py-2 text-sm" />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Description</span>
+          <span class="ui-eyebrow mb-1.5 block">Description</span>
           <textarea
             v-model="form.description"
             rows="4"
@@ -174,27 +170,23 @@ const exportChar = async () => {
           />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Greeting</span>
+          <span class="ui-eyebrow mb-1.5 block">Greeting</span>
           <textarea
             v-model="form.greeting"
             rows="3"
             class="ui-input w-full px-3 py-2 text-sm"
             placeholder="The first message this character sends when a new chat starts."
           />
-          <p class="mt-1 text-xs ui-text-subtle">
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
             Shown automatically as the character&apos;s opening message in new chats.
           </p>
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Scenario</span>
-          <textarea
-            v-model="form.scenario"
-            rows="2"
-            class="ui-input w-full px-3 py-2 text-sm"
-          />
+          <span class="ui-eyebrow mb-1.5 block">Scenario</span>
+          <textarea v-model="form.scenario" rows="2" class="ui-input w-full px-3 py-2 text-sm" />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Personality and speaking style</span>
+          <span class="ui-eyebrow mb-1.5 block">Personality and speaking style</span>
           <textarea
             v-model="form.personality.speakingStyle"
             rows="4"
@@ -203,40 +195,35 @@ const exportChar = async () => {
         </label>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Temperature</span>
+            <span class="ui-eyebrow mb-1.5 block">Temperature</span>
             <NumberInput
               v-model.number="form.defaultParams.temperature"
               :step="0.05"
               :min="0"
               :max="2"
             />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               0.2 focused, 0.7 balanced, 1.2+ more surprising.
             </p>
           </label>
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Top P</span>
-            <NumberInput
-              v-model.number="form.defaultParams.topP"
-              :step="0.05"
-              :min="0"
-              :max="1"
-            />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <span class="ui-eyebrow mb-1.5 block">Top P</span>
+            <NumberInput v-model.number="form.defaultParams.topP" :step="0.05" :min="0" :max="1" />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               0.8 tighter, 0.9 common, 1.0 broadest.
             </p>
           </label>
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Max tokens</span>
+            <span class="ui-eyebrow mb-1.5 block">Max tokens</span>
             <NumberInput v-model.number="form.defaultParams.maxTokens" :min="1" />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               128 short, 512 moderate, 1024+ long replies.
             </p>
           </label>
         </div>
       </div>
 
-      <p v-if="saveError" class="mt-4 text-sm text-red-600 dark:text-red-400">{{ saveError }}</p>
+      <p v-if="saveError" class="mt-4 text-sm ui-text-accent">{{ saveError }}</p>
 
       <div v-if="!loading && !loadError" class="mt-6 flex flex-wrap gap-3">
         <button
@@ -255,15 +242,14 @@ const exportChar = async () => {
         >
           Export JSON
         </button>
-        <button
-          v-if="!isNew"
-          type="button"
-          class="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950"
-          @click="remove"
-        >
+        <button v-if="!isNew" type="button" class="ui-btn-danger px-4 py-2 text-sm" @click="remove">
           Delete
         </button>
-        <button type="button" class="ui-btn-ghost px-4 py-2 text-sm" @click="router.push({ name: 'home' })">
+        <button
+          type="button"
+          class="ui-btn-ghost px-4 py-2 text-sm"
+          @click="router.push({ name: 'home' })"
+        >
           Cancel
         </button>
       </div>

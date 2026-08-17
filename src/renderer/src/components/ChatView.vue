@@ -96,8 +96,10 @@ const contextUsageLabel = computed(() =>
 
 const contextUsageClass = computed(() => {
   const percent = contextUsage.value?.percent ?? 0
-  if (percent >= 90) return 'text-red-600 dark:text-red-400'
-  if (percent >= 70) return 'text-amber-600 dark:text-amber-400'
+  // No red: the number itself is the signal. The palette's warn step marks a
+  // nearly-full context and copper marks the hard limit.
+  if (percent >= 90) return 'ui-text-accent'
+  if (percent >= 70) return 'ui-text-warn'
   return 'ui-text-subtle'
 })
 
@@ -461,8 +463,11 @@ const requestDelete = (message: Message) => {
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
     <div ref="scrollRef" class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6">
-      <div v-if="messages.length === 0 && !streamingText" class="flex h-full items-center justify-center">
-        <p class="ui-text-subtle">
+      <div
+        v-if="messages.length === 0 && !streamingText"
+        class="flex h-full items-center justify-center"
+      >
+        <p class="ui-text-muted">
           Start a conversation{{ characterName ? ` with ${characterName}` : '' }}
         </p>
       </div>
@@ -477,18 +482,19 @@ const requestDelete = (message: Message) => {
           <div class="max-w-[80%]">
             <div
               :ref="(el) => setBubbleRef(el, message.id)"
-              class="rounded-2xl px-4 py-3 text-sm leading-relaxed"
+              class="px-4 py-3 text-sm leading-relaxed"
+              style="border-radius: var(--radius-3)"
               :class="[
                 message.role === 'user'
-                  ? 'chat-bubble-user border border-neutral-700 bg-neutral-800 text-neutral-50 dark:border-transparent dark:bg-neutral-700 dark:text-neutral-100'
-                  : 'chat-bubble-assistant border border-neutral-300 bg-white text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100',
+                  ? 'chat-bubble-user border border-transparent bg-strong text-page'
+                  : 'chat-bubble-assistant ui-raised border border-hairline bg-card text-body',
                 isEditingMessage(message) ? 'flex flex-col' : ''
               ]"
               :style="editBubbleStyle(message)"
             >
               <p
                 v-if="message.role === 'assistant' && !isEditingMessage(message)"
-                class="mb-1 text-xs font-medium ui-text-muted"
+                class="ui-mono-sm ui-text-accent mb-1.5"
               >
                 {{ characterName }}
               </p>
@@ -511,16 +517,10 @@ const requestDelete = (message: Message) => {
                 class="flex items-center gap-2"
                 :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
               >
+                <button type="button" class="ui-micro" @click="cancelEdit">Cancel</button>
                 <button
                   type="button"
-                  class="ui-btn-outline px-2.5 py-1 text-xs"
-                  @click="cancelEdit"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  class="ui-btn-primary px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  class="ui-btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                   :disabled="!editDraft.trim()"
                   @click="saveEdit"
                 >
@@ -535,7 +535,7 @@ const requestDelete = (message: Message) => {
                 <button
                   v-if="canEditMessage(message)"
                   type="button"
-                  class="ui-btn-outline px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
                   :disabled="isGenerating"
                   @click="startEdit(message)"
                 >
@@ -544,7 +544,7 @@ const requestDelete = (message: Message) => {
                 <template v-if="isLatestAssistantMessage(message)">
                   <button
                     type="button"
-                    class="ui-btn-outline px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
                     :disabled="isGenerating"
                     @click="emit('regenerate')"
                   >
@@ -552,7 +552,7 @@ const requestDelete = (message: Message) => {
                   </button>
                   <button
                     type="button"
-                    class="ui-btn-outline px-2.5 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
                     :disabled="isGenerating"
                     title="Regenerate 3 times"
                     @click="emit('regenerateMultiple', 3)"
@@ -562,19 +562,19 @@ const requestDelete = (message: Message) => {
                   <div class="flex items-center gap-1">
                     <button
                       type="button"
-                      class="ui-btn-outline px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
                       :disabled="!canGoPrev(message)"
                       title="Previous variation"
                       @click="goVariationPrev(message)"
                     >
                       ←
                     </button>
-                    <span class="min-w-[3rem] text-center text-xs ui-text-subtle">
+                    <span class="ui-mono-sm ui-text-subtle min-w-[3rem] text-center tabular-nums">
                       {{ variationLabel(message) }}
                     </span>
                     <button
                       type="button"
-                      class="ui-btn-outline px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
                       :disabled="!canGoNext(message)"
                       title="Next variation"
                       @click="goVariationNext(message)"
@@ -585,7 +585,7 @@ const requestDelete = (message: Message) => {
                 </template>
                 <button
                   type="button"
-                  class="rounded-lg border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900/60 dark:text-red-300 dark:hover:bg-red-950"
+                  class="ui-micro ui-micro-danger disabled:cursor-not-allowed disabled:opacity-35"
                   :disabled="isGenerating"
                   @click="requestDelete(message)"
                 >
@@ -601,13 +601,14 @@ const requestDelete = (message: Message) => {
           class="flex justify-start"
         >
           <div
-            class="chat-bubble-assistant max-w-[80%] rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100"
+            class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
+            style="border-radius: var(--radius-3)"
           >
-            <p v-if="characterName" class="mb-1 text-xs font-medium ui-text-muted">
+            <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
               {{ characterName }}
             </p>
-            <p class="flex items-center gap-2 text-sm ui-text-muted">
-              <span class="animate-pulse">Thinking</span>
+            <p class="ui-mono ui-text-muted flex items-center gap-2">
+              <span class="animate-pulse">thinking</span>
               <span v-if="thinkingElapsed > 0" class="tabular-nums">{{ thinkingElapsed }}s</span>
             </p>
           </div>
@@ -615,9 +616,10 @@ const requestDelete = (message: Message) => {
 
         <div v-if="streamingText && !isRegeneratingLastAssistant" class="flex justify-start">
           <div
-            class="chat-bubble-assistant max-w-[80%] rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm leading-relaxed text-neutral-950 shadow-sm dark:border-transparent dark:bg-neutral-800 dark:text-neutral-100"
+            class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
+            style="border-radius: var(--radius-3)"
           >
-            <p v-if="characterName" class="mb-1 text-xs font-medium ui-text-muted">
+            <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
               {{ characterName }}
             </p>
             <FormattedMessageText :content="streamingText" /><span class="animate-pulse">▍</span>
@@ -628,31 +630,29 @@ const requestDelete = (message: Message) => {
 
     <div
       v-if="error"
-      class="border-t border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 md:px-6 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300"
+      class="ui-mono border-t border-hairline bg-inset px-3 py-2.5 text-accent md:px-6"
     >
       {{ error }}
     </div>
 
-    <div class="shrink-0 border-t border-neutral-200 px-3 py-3 md:px-6 md:py-4 dark:border-neutral-800">
+    <div class="shrink-0 border-t border-hairline px-3 py-3 md:px-6 md:py-4">
       <div class="mx-auto flex max-w-3xl flex-col items-stretch gap-2 md:flex-row">
         <div class="flex min-h-0 min-w-0 flex-1 self-stretch">
           <textarea
             v-model="input"
-            class="ui-input h-full max-h-48 min-h-[44px] w-full resize-none overflow-y-auto rounded-xl px-4 py-3 text-sm placeholder-neutral-400 dark:placeholder-neutral-500"
+            class="ui-input h-full max-h-48 min-h-[44px] w-full resize-none overflow-y-auto px-4 py-3 text-sm"
             :placeholder="characterName ? `Message ${characterName}...` : 'Type a message...'"
             @keydown="onKeydown"
           />
         </div>
-        <div class="flex shrink-0 flex-row items-center justify-between gap-2 md:flex-col md:items-end md:justify-between md:gap-1.5 md:self-stretch">
+        <div
+          class="flex shrink-0 flex-row items-center justify-between gap-2 md:flex-col md:items-end md:justify-between md:gap-1.5 md:self-stretch"
+        >
           <div
             v-if="tokenSpeedLabel || contextUsageLabel"
-            class="flex flex-row items-center gap-2 text-xs tabular-nums md:flex-col md:items-end md:gap-0.5"
+            class="ui-mono-sm flex flex-row items-center gap-2 tabular-nums md:flex-col md:items-end md:gap-1"
           >
-            <p
-              v-if="tokenSpeedLabel"
-              class="ui-text-subtle"
-              title="Estimated output speed"
-            >
+            <p v-if="tokenSpeedLabel" class="ui-text-subtle" title="Estimated output speed">
               {{ tokenSpeedLabel }}
             </p>
             <p
@@ -667,14 +667,14 @@ const requestDelete = (message: Message) => {
             <button
               v-if="isGenerating"
               type="button"
-              class="h-[38px] shrink-0 rounded-xl bg-red-200 px-4 text-sm font-medium text-red-900 hover:bg-red-300 dark:bg-red-900/80 dark:text-red-100 dark:hover:bg-red-900"
+              class="ui-btn-danger h-[38px] shrink-0 px-4 text-sm"
               @click="emit('abort')"
             >
               Stop
             </button>
             <button
               type="button"
-              class="ui-btn-primary h-[38px] shrink-0 rounded-xl px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+              class="ui-btn-primary h-[38px] shrink-0 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40"
               :disabled="!input.trim() || isGenerating"
               @click="submit"
             >

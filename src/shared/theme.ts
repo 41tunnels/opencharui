@@ -22,6 +22,15 @@ export const readThemeFromDocument = (): AppTheme | null => {
 export const applyTheme = (theme: AppTheme): void => {
   const root = document.documentElement
   root.dataset.theme = theme
+  // The design system has no dark *mode*, only dark *surfaces*: data-surface
+  // re-resolves every semantic token beneath it. Setting it on <html> reskins the
+  // whole app. The dark/light classes stay for Tailwind's dark: variant and for
+  // the handful of rules keyed off html.dark in app.css.
+  if (theme === 'dark') {
+    root.dataset.surface = 'dark'
+  } else {
+    delete root.dataset.surface
+  }
   root.classList.remove('dark', 'light')
   root.classList.add(theme)
   root.style.colorScheme = theme

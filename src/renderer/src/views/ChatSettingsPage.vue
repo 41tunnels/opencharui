@@ -28,9 +28,7 @@ const summaryNotice = ref<string | null>(null)
 const summaryError = ref<string | null>(null)
 
 const chatId = computed(() => route.params.id as string)
-const chat = computed(() =>
-  store.activeChat?.id === chatId.value ? store.activeChat : null
-)
+const chat = computed(() => (store.activeChat?.id === chatId.value ? store.activeChat : null))
 const characterDefaults = computed(() => chat.value?.character?.defaultParams)
 
 const loadChatSettings = async () => {
@@ -51,8 +49,7 @@ const loadChatSettings = async () => {
 
     personaId.value = current.personaId ?? current.persona?.id ?? ''
     systemPrompt.value = current.systemPrompt ?? ''
-    temperature.value =
-      current.temperature !== undefined ? String(current.temperature) : ''
+    temperature.value = current.temperature !== undefined ? String(current.temperature) : ''
     topP.value = current.topP !== undefined ? String(current.topP) : ''
     maxTokens.value = current.maxTokens !== undefined ? String(current.maxTokens) : ''
     contextWindowSize.value = resolveChatContextWindowSize(current)
@@ -79,9 +76,7 @@ const summarizedCount = computed(() => {
   return index === -1 ? 0 : index + 1
 })
 
-const runSummaryAction = async (
-  action: () => Promise<string | null>
-): Promise<void> => {
+const runSummaryAction = async (action: () => Promise<string | null>): Promise<void> => {
   summaryBusy.value = true
   summaryError.value = null
   summaryNotice.value = null
@@ -139,10 +134,7 @@ const save = async () => {
 
   try {
     const keepAlive = parseOptionalNumber(keepAliveMinutes.value)
-    if (
-      keepAlive !== undefined &&
-      (!Number.isInteger(keepAlive) || keepAlive < -1)
-    ) {
+    if (keepAlive !== undefined && (!Number.isInteger(keepAlive) || keepAlive < -1)) {
       throw new Error('Keep model loaded must be an integer ≥ -1')
     }
 
@@ -174,7 +166,7 @@ const save = async () => {
     <div class="mx-auto w-full max-w-lg space-y-6">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0">
-          <h2 class="text-xl font-semibold">Chat settings</h2>
+          <h2 class="ui-text-strong text-[21px] font-medium tracking-tight">Chat settings</h2>
           <p v-if="chat" class="truncate text-sm ui-text-subtle">{{ chat.title }}</p>
         </div>
         <button
@@ -187,62 +179,49 @@ const save = async () => {
       </div>
 
       <p v-if="loading" class="text-sm ui-text-muted">Loading...</p>
-      <p v-if="loadError" class="text-sm text-red-600 dark:text-red-400">{{ loadError }}</p>
+      <p v-if="loadError" class="text-sm ui-text-accent">{{ loadError }}</p>
 
       <template v-if="!loading && !loadError">
         <label v-if="store.personas.length > 1" class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Persona</span>
-          <select
-            v-model="personaId"
-            class="ui-input w-full px-3 py-2 text-sm"
-          >
-            <option
-              v-for="persona in store.personas"
-              :key="persona.id"
-              :value="persona.id"
-            >
+          <span class="ui-eyebrow mb-1.5 block">Persona</span>
+          <select v-model="personaId" class="ui-input w-full px-3 py-2 text-sm">
+            <option v-for="persona in store.personas" :key="persona.id" :value="persona.id">
               {{ persona.name }}
             </option>
           </select>
-          <p class="mt-1 text-xs ui-text-subtle">
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
             This controls the user name and user description injected into the prompt.
           </p>
         </label>
 
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Chat system prompt</span>
+          <span class="ui-eyebrow mb-1.5 block">Chat system prompt</span>
           <textarea
             v-model="systemPrompt"
             rows="6"
             class="ui-input w-full px-3 py-2 text-sm"
             placeholder="Leave empty to use the global system prompt from Settings"
           />
-          <p class="mt-1 text-xs ui-text-subtle">
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
             Appended after the global system prompt from Settings. Character and persona details are
-            still appended automatically. Use <code class="text-neutral-700 dark:text-neutral-300" v-pre>{{char}}</code> for the
-            character name and <code class="text-neutral-700 dark:text-neutral-300" v-pre>{{user}}</code> for user name.
+            still appended automatically. Use
+            <code class="ui-mono-sm ui-text-strong" v-pre>{{ char }}</code> for the character name
+            and <code class="ui-mono-sm ui-text-strong" v-pre>{{ user }}</code> for user name.
           </p>
         </label>
 
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Context window (message pairs)</span>
-          <NumberInput
-            v-model.number="contextWindowSize"
-            :min="4"
-          />
-          <p class="mt-1 text-xs ui-text-subtle">
+          <span class="ui-eyebrow mb-1.5 block">Context window (message pairs)</span>
+          <NumberInput v-model.number="contextWindowSize" :min="4" />
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
             How many user/assistant message pairs are included when generating replies.
           </p>
         </label>
 
         <label class="block">
-          <span class="mb-1 block text-sm ui-text-muted">Keep model loaded (minutes)</span>
-          <NumberInput
-            v-model="keepAliveMinutes"
-            :min="-1"
-            placeholder="Default"
-          />
-          <p class="mt-1 text-xs ui-text-subtle">
+          <span class="ui-eyebrow mb-1.5 block">Keep model loaded (minutes)</span>
+          <NumberInput v-model="keepAliveMinutes" :min="-1" placeholder="Default" />
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
             How long Ollama keeps the model in memory after a reply. Empty uses Ollama&apos;s
             default (usually 5 minutes). Use 0 to unload immediately, or -1 to keep it loaded
             indefinitely.
@@ -251,7 +230,7 @@ const save = async () => {
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Temperature</span>
+            <span class="ui-eyebrow mb-1.5 block">Temperature</span>
             <NumberInput
               v-model="temperature"
               :step="0.05"
@@ -263,12 +242,12 @@ const save = async () => {
                   : 'Default'
               "
             />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               Randomness: 0.2 is focused, 0.7 balanced, 1.2+ more chaotic.
             </p>
           </label>
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Top P</span>
+            <span class="ui-eyebrow mb-1.5 block">Top P</span>
             <NumberInput
               v-model="topP"
               :step="0.05"
@@ -278,12 +257,12 @@ const save = async () => {
                 characterDefaults?.topP !== undefined ? String(characterDefaults.topP) : 'Default'
               "
             />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               Sampling range: 0.8 tighter, 0.9 common, 1.0 broadest.
             </p>
           </label>
           <label class="block">
-            <span class="mb-1 block text-sm ui-text-muted">Max tokens</span>
+            <span class="ui-eyebrow mb-1.5 block">Max tokens</span>
             <NumberInput
               v-model="maxTokens"
               :min="1"
@@ -293,15 +272,15 @@ const save = async () => {
                   : 'Default'
               "
             />
-            <p class="mt-1 text-xs ui-text-subtle">
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
               Length cap: 128 short, 512 moderate, 1024+ long replies.
             </p>
           </label>
         </div>
 
-        <div class="rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+        <div class="ui-inset bg-transparent p-4">
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm font-medium">Story so far</span>
+            <span class="ui-text-strong text-[17px] font-semibold">Story so far</span>
             <span class="text-xs ui-text-subtle">
               {{
                 summarizedCount > 0
@@ -348,9 +327,7 @@ const save = async () => {
               Clear
             </button>
             <span v-if="summaryNotice" class="text-xs ui-text-subtle">{{ summaryNotice }}</span>
-            <span v-if="summaryError" class="text-xs text-red-600 dark:text-red-400">{{
-              summaryError
-            }}</span>
+            <span v-if="summaryError" class="text-xs ui-text-accent">{{ summaryError }}</span>
           </div>
         </div>
 
@@ -369,7 +346,7 @@ const save = async () => {
           >
             Save settings
           </button>
-          <span v-if="saveError" class="text-sm text-red-600 dark:text-red-400">{{ saveError }}</span>
+          <span v-if="saveError" class="text-sm ui-text-accent">{{ saveError }}</span>
         </div>
       </template>
     </div>

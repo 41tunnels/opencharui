@@ -45,7 +45,7 @@ watch(
 )
 
 // The real window comes from the running model, so it cannot be read while
-// the connection is down — and a page opened before the relay is up would
+// the connection is down — and a page opened before the Relay is up would
 // otherwise keep showing the fallback (and a wildly wrong context
 // percentage) until the chat is reopened.
 watch(
@@ -281,8 +281,7 @@ const editLastAssistantMessage = async (content: string) => {
       break
     }
   }
-  const editedMessageId =
-    lastAssistantIndex >= 0 ? messages[lastAssistantIndex]?.id : null
+  const editedMessageId = lastAssistantIndex >= 0 ? messages[lastAssistantIndex]?.id : null
 
   if (editedMessageId) {
     store.activeChat.messages = store.activeChat.messages.map((message) =>
@@ -373,7 +372,9 @@ const onTitleBlur = () => {
 
 <template>
   <div v-if="store.activeChat" class="flex min-h-0 flex-1 flex-col">
-    <div class="ui-surface flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-3 md:px-6">
+    <div
+      class="ui-surface flex shrink-0 flex-wrap items-center justify-between gap-2 border-b px-3 py-3 md:px-6"
+    >
       <div class="min-w-0 flex-1">
         <div class="group flex min-w-0 items-center gap-2">
           <input
@@ -389,7 +390,7 @@ const onTitleBlur = () => {
             <h2 class="min-w-0 truncate text-sm font-medium">{{ store.activeChat.title }}</h2>
             <button
               type="button"
-              class="ui-hover-reveal shrink-0 rounded-md px-1.5 py-0.5 text-xs ui-text-subtle transition-opacity hover:bg-neutral-200 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              class="ui-micro ui-micro-bare ui-hover-reveal shrink-0 transition-opacity"
               title="Rename chat"
               @click="startRename"
             >
@@ -397,7 +398,10 @@ const onTitleBlur = () => {
             </button>
           </template>
         </div>
-        <p v-if="store.activeChat.character || store.activeChat.persona" class="truncate text-xs ui-text-subtle">
+        <p
+          v-if="store.activeChat.character || store.activeChat.persona"
+          class="truncate text-xs ui-text-subtle"
+        >
           <span v-if="store.activeChat.persona">as {{ store.activeChat.persona.name }}</span>
           <span v-if="store.activeChat.persona && store.activeChat.character"> · </span>
           <span v-if="store.activeChat.character">with {{ store.activeChat.character.name }}</span>
@@ -431,7 +435,7 @@ const onTitleBlur = () => {
         <textarea
           v-model="rawJson"
           rows="24"
-          class="ui-input min-h-[50vh] w-full flex-1 rounded-xl p-4 font-mono text-sm md:min-h-[420px]"
+          class="ui-input ui-input-mono min-h-[50vh] w-full flex-1 p-4 text-xs md:min-h-[420px]"
         />
         <div class="flex flex-wrap items-center gap-3">
           <button type="button" class="ui-btn-outline px-4 py-2 text-sm" @click="applyRawJson">
@@ -445,7 +449,7 @@ const onTitleBlur = () => {
           >
             Save
           </button>
-          <span v-if="saveError" class="text-sm text-red-600 dark:text-red-400">{{ saveError }}</span>
+          <span v-if="saveError" class="text-sm ui-text-accent">{{ saveError }}</span>
         </div>
       </div>
     </div>

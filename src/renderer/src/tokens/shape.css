@@ -1,0 +1,23 @@
+/* Synced from claude.ai/design — "41tunnels Design System" · tokens/shape.css */
+:root {
+  --radius-0: 0px;
+  --radius-1: 4px;    /* buttons, chips, inputs */
+  --radius-2: 6px;    /* tray/url fields */
+  --radius-3: 10px;   /* cards, windows */
+  --radius-4: 20px;   /* app icon tiles */
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+  --rule: var(--border-width) solid var(--border-hairline);
+
+  /* shadows are rare and always long, low-opacity, cool */
+  --shadow-none: none;
+  --shadow-raised: 0 1px 2px rgba(20,24,26,0.06);
+  --shadow-panel: 0 18px 40px -24px rgba(20,24,26,0.30);
+  --shadow-window: 0 24px 60px -30px rgba(20,24,26,0.35);
+
+  --clearspace: 0.5;      /* × mark height, all sides */
+  --endorse-ratio: 0.55;  /* 41tunnels mark ÷ product icon height */
+  --mark-min: 16px;
+  --mark-crossover: 24px; /* at or below, use the open small-size mark */
+}

@@ -1,0 +1,35 @@
+/* Synced from claude.ai/design — "41tunnels Design System" · tokens/typography.css */
+:root {
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --weight-regular: 400;
+  --weight-medium: 500;   /* wordmark, headings, buttons */
+  --weight-semibold: 600; /* product names, table keys */
+
+  /* display / heading scale — tight tracking, medium weight */
+  --text-display: 44px;
+  --text-display-lh: 1.12;
+  --text-display-ls: -0.025em;
+  --text-h1: 30px;
+  --text-h1-ls: -0.02em;
+  --text-h2: 21px;
+  --text-h2-ls: -0.02em;
+  --text-h3: 17px;
+
+  /* body */
+  --text-lead: 17px;
+  --text-body-size: 16.5px;
+  --text-body-lh: 1.6;
+  --text-small: 14px;
+
+  /* mono — labels, metadata, code, all micro-copy */
+  --text-mono: 12.5px;
+  --text-mono-sm: 11px;
+  --text-mono-lh: 1.75;
+  --text-mono-ls: 0.01em;
+  --text-eyebrow-ls: 0.06em;
+
+  --measure: 66ch;      /* prose max width */
+  --measure-tight: 52ch;
+}
