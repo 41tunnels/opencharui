@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@renderer/stores/app'
+import { useDelayedDisconnect } from '@renderer/composables/useDelayedDisconnect'
 import AppHeader from '@renderer/components/AppHeader.vue'
 import AppSidebar from '@renderer/components/AppSidebar.vue'
 import OllamaSetupOverlay from '@renderer/components/OllamaSetupOverlay.vue'
@@ -25,6 +26,14 @@ const mobileSidebarOpen = computed(() => !store.uiState.sidebarCollapsed)
 // reports the agent offline.
 const suppressOverlayForRelay = computed(
   () => store.llmStatus.transport === 'relay' && store.llmStatus.relayState === 'connecting'
+)
+
+// Once a connection has been seen, a drop has to last a few seconds before the
+// overlay takes over — a reconnect inside that window resets the timer, so a
+// short outage never flashes the setup screen. A never-connected app still
+// gets the overlay immediately.
+const disconnected = useDelayedDisconnect(
+  () => !store.llmStatus.ollamaAvailable && !suppressOverlayForRelay.value
 )
 
 const closeSidebarIfMobile = () => {
@@ -106,10 +115,7 @@ onUnmounted(() => {
     </div>
 
     <OllamaSetupOverlay
-      v-if="
-        ((!store.llmStatus.ollamaAvailable && !suppressOverlayForRelay) || isSetupPreview) &&
-        route.name !== 'settings'
-      "
+      v-if="(disconnected || isSetupPreview) && route.name !== 'settings'"
       :preview-production="isSetupPreview"
     />
   </div>
