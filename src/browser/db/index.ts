@@ -23,7 +23,18 @@ const SYNC_NOTIFY_STORES: ReadonlySet<StoreName> = new Set([
 ])
 
 const DB_NAME = 'opencharui'
-const DB_VERSION = 6
+// Bumped past 6 (not just to it) to force onupgradeneeded to run again for
+// any browser whose IndexedDB was already sitting at version 6 without the
+// `pairings` store — IndexedDB only fires the upgrade handler when the
+// requested version is *higher* than what's on disk, so a database that
+// reached "6" any other way (an interrupted upgrade, a differently-shaped
+// v6 from earlier local testing, etc.) would otherwise be stuck forever
+// missing whatever this version was supposed to add. The store-creation
+// code below is already idempotent (`if (!contains(...))` per store) and
+// the migration further down is idempotent too (no-ops once the old
+// relay* settings rows are gone), so re-running this for every v6 comer is
+// safe regardless of why they were at 6.
+const DB_VERSION = 7
 
 /** Matches db/relay-secrets.ts's `generateId()` shape — kept local rather
  * than shared since it's a 3-line helper and this call site runs inside a
@@ -135,7 +146,7 @@ export const openDb = (): Promise<IDBDatabase> => {
         // — reusing its `relaySecrets` PSK row untouched, only ever adding
         // the new indirection on top of it. Runs once, for upgrades that
         // actually crossed v5 (a fresh v6 database has nothing to migrate).
-        if (event.oldVersion > 0 && event.oldVersion < 6) {
+        if (event.oldVersion > 0 && event.oldVersion < 7) {
           const tx = request.transaction
           if (tx) {
             const settingsStore = tx.objectStore('settings')
