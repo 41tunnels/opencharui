@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "opencharui",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local roleplay chat with Ollama",
   "author": "tehfonsi",
   "license": "PolyForm-Noncommercial-1.0.0",
