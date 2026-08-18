@@ -50,15 +50,44 @@ npm run build
 npm run preview
 ```
 
-Serve the `dist/` folder with any static host. Ensure Ollama CORS is configured for your deployment origin.
+Serve the `dist/` folder with any static host, or use the Docker image below. Ensure Ollama CORS is configured for your deployment origin.
+
+## Docker
+
+Released versions are published to the GitHub Container Registry:
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/41tunnels/opencharui:latest
+```
+
+The app is then at `http://localhost:8080`. Images are tagged with the release version (`:1.2.3`) and `:latest`, for `linux/amd64` and `linux/arm64`. See `docker-compose.yml` for a fuller example.
+
+Configure Ollama CORS for whatever origin you serve the container on, e.g. `OLLAMA_ORIGINS=http://localhost:8080` (see [Ollama setup](#ollama-setup) above).
+
+### Analytics (optional)
+
+The image ships with analytics off and makes no third-party request. To send page loads to your own [Umami](https://umami.is) instance, set **both**:
+
+| Variable | Example |
+| --- | --- |
+| `UMAMI_URL` | `https://umami.example.com` |
+| `UMAMI_WEBSITE_ID` | `00000000-0000-0000-0000-000000000000` |
+
+These are read at container start and written to `config.json`, which the app fetches on load — so they can be changed by restarting the container, with no rebuild. Only the initial page load is recorded; the app is hash-routed and the tag sets `data-exclude-hash`, so which chat or character you open is never sent.
 
 ## GitHub Pages
 
-Pushes to the `release` branch deploy automatically to GitHub Pages at:
+A copy is deployed to GitHub Pages at:
 
 `https://opencharui.github.io/web/`
 
+That deployment is **manual** — run the *Deploy GitHub Pages* workflow from the Actions tab, selecting the `release` branch. Pushing to `release` cuts a release and publishes the Docker image, but does not update Pages.
+
 Configure Ollama CORS for that origin when using the hosted build, e.g. `OLLAMA_ORIGINS=https://opencharui.github.io`.
+
+## Releases
+
+`web` uses [semantic-release](https://semantic-release.gitbook.io). Commit messages follow [Conventional Commits](https://www.conventionalcommits.org) (`feat:` → minor, `fix:` → patch, `!`/`BREAKING CHANGE` → major), and merging to `release` derives the next version, tags it, publishes GitHub release notes and pushes the Docker image. Version numbers are never bumped by hand.
 
 ## Project structure
 
