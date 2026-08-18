@@ -19,6 +19,14 @@ export default defineConfig({
     // with a `// @vitest-environment happy-dom` comment when that's needed
     // rather than paying the DOM setup cost for every test by default.
     environment: 'node',
-    include: ['test/**/*.test.ts']
+    include: ['test/**/*.test.ts'],
+    // Headroom, not a cure. The slowest test here runs in a few hundred ms,
+    // but test/relay/fetch.test.ts has failed on CI at 5003ms — a marginal
+    // overshoot of vitest's 5s default when the parallel workers contend on
+    // a two-core runner. This buys margin for that case. It does not fix the
+    // underlying flake: under heavy starvation the same file still times out
+    // at 15s, so if this recurs the cause is elsewhere and worth chasing
+    // rather than papering over with a bigger number.
+    testTimeout: 15000
   }
 })
