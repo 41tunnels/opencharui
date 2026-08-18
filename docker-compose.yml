@@ -1,5 +1,5 @@
 services:
-  web:
+  opencharui:
     image: ghcr.io/41tunnels/opencharui:latest
     container_name: opencharui-web
     restart: unless-stopped
