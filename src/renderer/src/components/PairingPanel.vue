@@ -2,6 +2,9 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { RelayPairingSummary, RelayState } from '@shared/types'
 import { useQrScanner } from '@renderer/composables/useQrScanner'
+import { useAppStore } from '@renderer/stores/app'
+
+const store = useAppStore()
 
 const pairings = ref<RelayPairingSummary[]>([])
 const activeId = ref('')
@@ -65,6 +68,10 @@ const refreshStatus = async (): Promise<void> => {
   pairings.value = list
   activeId.value = status.activeId
   state.value = status.state
+  // The header names the active pairing ("Mac connected"), so adding,
+  // renaming, switching or removing one has to re-read the LLM status —
+  // soft, since none of that changes whether Ollama is reachable.
+  await store.refreshLlm({ force: false })
 }
 
 const applyCode = async (raw: string): Promise<boolean> => {
