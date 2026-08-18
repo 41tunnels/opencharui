@@ -1,10 +1,15 @@
 # OpenCharUI
 
+*A [41tunnels](https://41tunnels.com) project.*
+
 Browser-based roleplay chat app powered by local AI models via [Ollama](https://ollama.com). Everything runs on your machine — chats, characters, and inference stay local, and nothing is sent to the cloud.
+
+Pair with **Amallo**, the 41tunnels desktop agent, to reach your own Ollama from anywhere. Amallo runs next to Ollama on your PC and opens an outbound connection to the 41tunnels relay — no port forwarding, no exposed inbound ports, and it keeps working behind CGNAT. Scan the pairing QR code once from the web app's Settings page and both sides derive their own encryption key on the spot, so the relay only ever sees ciphertext. From then on, `web` can reach your PC's Ollama from any network, while inference and data still never leave your machine.
 
 ## Features
 
 - **Private by design** — uses local AI models on your machine; your chats and character data never leave your device
+- **Connect from anywhere with Amallo** — pair with the Amallo desktop agent over the 41tunnels relay for encrypted, NAT-traversing access to your local Ollama, no port forwarding required
 - **PNG character card import** — import SillyTavern-compatible character cards (V1/V2/V3) from PNG or JSON
 - ChatGPT-like UI with collapsible Characters and Chats sidebar
 - Character cards with personality, scenario, and greeting
