@@ -140,6 +140,11 @@ export interface LLMStatus {
   /** True when connected via an Amallo instance (API key set, or relay
    * paired) rather than plain Ollama. */
   usingAmallo: boolean
+  /** What the user named the Amallo instance on the other end of the
+   * active relay pairing, so the UI can say "Mac connected" rather than
+   * the generic "Amallo connected". Null when there is no pairing behind
+   * the connection (plain Ollama, or the direct/LAN Amallo path). */
+  amalloLabel: string | null
   /** True when the server answered 401 — the URL is reachable but the API key is missing/wrong */
   unauthorized: boolean
   transport: 'direct' | 'relay'

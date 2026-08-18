@@ -22,6 +22,7 @@ export const useAppStore = defineStore('app', () => {
   const llmStatus = ref<LLMStatus>({
     ollamaAvailable: false,
     usingAmallo: false,
+    amalloLabel: null,
     unauthorized: false,
     transport: 'direct',
     relayState: null

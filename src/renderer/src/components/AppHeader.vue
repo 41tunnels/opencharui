@@ -7,7 +7,13 @@ import ModelSelector from '@renderer/components/ModelSelector.vue'
 const router = useRouter()
 const store = useAppStore()
 
-const providerLabel = computed(() => (store.llmStatus.usingAmallo ? 'Amallo' : 'Ollama'))
+// A paired Amallo shows under the name the user gave it ("Mac connected"),
+// which is what tells two paired machines apart; "Amallo" is the fallback
+// for the unnamed/direct case.
+const providerLabel = computed(() => {
+  if (!store.llmStatus.usingAmallo) return 'Ollama'
+  return store.llmStatus.amalloLabel || 'Amallo'
+})
 
 // The Relay keeps one client per pairing, so opening the app in a second
 // tab or on a phone takes this one's place. Rather than grabbing it

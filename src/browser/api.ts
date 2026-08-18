@@ -22,11 +22,21 @@ import { onRelayStateChange, reconnectRelay, relayState } from './relay'
 import * as pairing from './relay/pairing'
 import { getSettings } from './db/settings'
 
+/** The name the user gave the active pairing, for the header's
+ * "<name> connected". Only relay connections have one. */
+const activePairingLabel = async (): Promise<string | null> => {
+  const { activePairingId } = await getSettings()
+  if (!activePairingId) return null
+  const active = await pairing.getSavedPairing(activePairingId)
+  return active?.label.trim() || null
+}
+
 const buildLlmStatus = async (probe: OllamaProbeResult): Promise<LLMStatus> => {
   const conn = await ollama.resolveConnection()
   return {
     ollamaAvailable: probe === 'ok',
     usingAmallo: await ollama.isUsingAmallo(),
+    amalloLabel: conn.transport === 'relay' ? await activePairingLabel() : null,
     unauthorized: probe === 'unauthorized',
     transport: conn.transport,
     relayState: conn.transport === 'relay' ? relayState() : null
