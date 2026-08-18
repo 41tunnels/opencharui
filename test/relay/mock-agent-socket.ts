@@ -187,11 +187,20 @@ export class MockAgentSocket implements WebSocketLike {
     const session = await deriveSession(this.psk, t, ecdhX)
     await verifyConfirm(session, payload, Role.Client)
 
+    // Installed before the CONFIRM goes out, not after: the client is free
+    // to send ciphertext the instant it verifies our CONFIRM, and on a
+    // loaded runner these WebCrypto imports are slow enough for that
+    // ciphertext to arrive here first. Emitting after leaves a window where
+    // it's read against no opener (silently dropped) or, worse, against
+    // whatever opener a *later* handshake on this same reused socket has
+    // just installed (a stray counter from the wrong session).
+    const sealer = await Sealer.create(session.kA2W, session.npA2W)
+    const opener = await Opener.create(session.kW2A, session.npW2A)
+    this.sealer = sealer
+    this.opener = opener
+
     const myConfirm = await buildConfirm(session, Role.Agent)
     this.emitRaw(encodeOuter(Channel.Handshake, myConfirm))
-
-    this.sealer = await Sealer.create(session.kA2W, session.npA2W)
-    this.opener = await Opener.create(session.kW2A, session.npW2A)
   }
 
   private async handleInner(frame: InnerFrame): Promise<void> {
