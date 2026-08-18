@@ -1,0 +1,24 @@
+services:
+  web:
+    image: ghcr.io/41tunnels/opencharui:latest
+    container_name: opencharui-web
+    restart: unless-stopped
+    # Umami analytics. Both are required — set neither (the default) and the
+    # app makes no third-party request at all.
+    # environment:
+    #   UMAMI_URL: "https://umami.example.com"
+    #   UMAMI_WEBSITE_ID: "00000000-0000-0000-0000-000000000000"
+    ports:
+      - 8080:8080 # reverse proxy fronts this
+    # Not read_only: the entrypoint writes config.json into the web root on
+    # every start.
+    cap_drop: [ALL]
+    security_opt:
+      - "no-new-privileges:true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

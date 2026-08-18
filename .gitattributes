@@ -1,0 +1,5 @@
+# core.autocrlf=true would otherwise hand the Docker build a CRLF shebang, and
+# `#!/bin/sh^M` is not an interpreter any container has.
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker/** text eol=lf
