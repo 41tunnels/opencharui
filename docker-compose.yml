@@ -9,7 +9,9 @@ services:
     #   UMAMI_URL: "https://umami.example.com"
     #   UMAMI_WEBSITE_ID: "00000000-0000-0000-0000-000000000000"
     ports:
-      - 8080:8080 # reverse proxy fronts this
+      # Next in the 41tunnels host-port sequence: relay has 3849 and 3850,
+      # website 3851. Reverse proxy fronts this.
+      - 3852:8080
     # Not read_only: the entrypoint writes config.json into the web root on
     # every start.
     cap_drop: [ALL]
