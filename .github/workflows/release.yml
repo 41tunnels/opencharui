@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  # Never cancel a run mid-release: a cancelled publish leaves a tag and a
+  # GitHub release with no image behind them.
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+
+  # Analyzes commits since the last release (conventional commits: feat →
+  # minor, fix → patch, "BREAKING CHANGE"/"!" → major); if one is warranted,
+  # bumps package.json, commits and tags that, and publishes the GitHub
+  # release with generated notes. The image comes from the job below.
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      published: ${{ steps.semantic.outputs.new_release_published }}
+      version: ${{ steps.semantic.outputs.new_release_version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # semantic-release needs the full commit/tag history to find the
+          # previous release and analyze everything since it — the default
+          # shallow clone only has the latest commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: Semantic release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v6
+        with:
+          # commit-analyzer, release-notes-generator, npm and github ship with
+          # semantic-release; git does not.
+          extra_plugins: |
+            @semantic-release/git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Builds the image from the tag the job above just created and pushes it to
+  # GHCR. Only runs when a release actually happened: most pushes to release
+  # (docs, chores, non-release-worthy fixes) publish nothing.
+  publish:
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: v${{ needs.release.outputs.version }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Exports ACTIONS_RUNTIME_TOKEN/ACTIONS_CACHE_URL into the environment.
+      # docker/build-push-action does this itself; a raw `docker buildx` call
+      # does not, and without them the --cache-to/--cache-from below silently
+      # do nothing.
+      - uses: crazy-max/ghaction-github-runtime@v3
+
+      # Raw-CLI login, same convention as the relay and website repos, with
+      # --password-stdin so the token never lands in the process list or
+      # docker's own command-line history.
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Both tags in one invocation, so :latest always resolves to the version
+      # tag published in the same push.
+      - name: Build and push
+        run: |
+          VERSION="${{ needs.release.outputs.version }}"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg VERSION="$VERSION" \
+            --tag "ghcr.io/41tunnels/opencharui:$VERSION" \
+            --tag ghcr.io/41tunnels/opencharui:latest \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --provenance=false \
+            --push .
+
+      - name: Log out
+        if: always()
+        run: docker logout ghcr.io

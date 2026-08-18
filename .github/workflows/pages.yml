@@ -1,8 +1,10 @@
 name: Deploy GitHub Pages
 
+# Manual only. Pushes to release cut a version and publish the Docker image
+# (see release.yml); the Pages deployment is kept for on-demand use and does
+# not follow the branch any more.
 on:
-  push:
-    branches: [release]
+  workflow_dispatch:
 
 permissions:
   contents: read
