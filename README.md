@@ -79,11 +79,11 @@ These are read at container start and written to `config.json`, which the app fe
 
 A copy is deployed to GitHub Pages at:
 
-`https://opencharui.github.io/web/`
+`https://41tunnels.github.io/opencharui/`
 
 That deployment is **manual** — run the *Deploy GitHub Pages* workflow from the Actions tab, selecting the `release` branch. Pushing to `release` cuts a release and publishes the Docker image, but does not update Pages.
 
-Configure Ollama CORS for that origin when using the hosted build, e.g. `OLLAMA_ORIGINS=https://opencharui.github.io`.
+Configure Ollama CORS for that origin when using the hosted build, e.g. `OLLAMA_ORIGINS=https://41tunnels.github.io`.
 
 ## Releases
 

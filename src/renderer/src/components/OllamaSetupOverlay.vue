@@ -17,8 +17,8 @@ const mode = ref<'ollama' | 'amallo'>('ollama')
 
 const isDev = import.meta.env.DEV
 const showProductionSetup = computed(() => !isDev || props.previewProduction)
-const PRODUCTION_APP_URL = 'https://opencharui.github.io/web'
-const PRODUCTION_OLLAMA_ORIGIN = 'https://opencharui.github.io'
+const PRODUCTION_APP_URL = 'https://41tunnels.github.io/opencharui'
+const PRODUCTION_OLLAMA_ORIGIN = 'https://41tunnels.github.io'
 const macCopied = ref<'temporary' | 'permanent' | null>(null)
 
 const macTemporaryCommand = `launchctl setenv OLLAMA_ORIGINS "${PRODUCTION_OLLAMA_ORIGIN}" && osascript -e 'quit app "Ollama"' 2>/dev/null; sleep 1; open -a Ollama`

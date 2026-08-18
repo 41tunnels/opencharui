@@ -25,7 +25,7 @@ const reclaimRelay = async () => {
   await store.refreshLlm({ force: true })
 }
 
-const GITHUB_REPO_URL = 'https://github.com/OpenCharUI/web'
+const GITHUB_REPO_URL = 'https://github.com/41tunnels/opencharui'
 
 const newChat = async () => {
   if (store.characters.length === 0) {
