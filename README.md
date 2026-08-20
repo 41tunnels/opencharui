@@ -104,3 +104,11 @@ All app data lives in the browser IndexedDB database `opencharui`:
 - No server-side storage; clearing site data removes all chats
 
 Existing data from the previous Electron desktop app is **not** migrated automatically.
+
+## License
+
+Copyright © 41tunnels. Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).
+
+As a network-facing application this falls under AGPL §13: anyone you serve
+this app to is entitled to its source. The header links back to this
+repository, which is how that offer is made.
