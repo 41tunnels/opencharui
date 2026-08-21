@@ -41,6 +41,30 @@ export type OllamaProbeResult = 'ok' | 'unauthorized' | 'unreachable'
 
 const TAGS_TTL_MS = 45_000
 
+/** How long `/api/tags` gets before it is called unreachable, per
+ * transport.
+ *
+ * A direct probe is a request to 127.0.0.1 and should fail fast — two
+ * seconds is already generous for a local socket. A relay probe is not
+ * comparable: on a fresh page load it has to open a WebSocket to the
+ * relay, exchange hello, wait for the agent's `peer_online` and complete
+ * a two-round-trip E2E handshake before the request itself even starts.
+ * Holding that to the same two seconds is what put "Waiting for Ollama"
+ * in front of a pairing that was a few hundred milliseconds from being
+ * ready, and it is why connecting appeared to need several attempts —
+ * each attempt was abandoned just before it would have succeeded. */
+const PROBE_TIMEOUT_MS: Record<OllamaConnection['transport'], number> = {
+  direct: 2_000,
+  relay: 8_000
+}
+
+/** The budget for an explicit "check connection" — the user is watching
+ * and has asked for a definitive answer, so it is worth waiting for. */
+const FORCED_PROBE_TIMEOUT_MS: Record<OllamaConnection['transport'], number> = {
+  direct: 10_000,
+  relay: 20_000
+}
+
 type TagsResponse = {
   models: Array<{ name: string; size: number }>
 }
@@ -135,9 +159,10 @@ export const fetchTags = async (options: { force?: boolean } = {}): Promise<Tags
   const request = (async (): Promise<TagsSnapshot> => {
     try {
       const conn = await resolveConnection()
+      const budget = force ? FORCED_PROBE_TIMEOUT_MS : PROBE_TIMEOUT_MS
       const res = await httpFetch(conn)(`${conn.baseUrl}/api/tags`, {
         headers: buildHeaders(conn),
-        signal: AbortSignal.timeout(force ? 10_000 : 2000)
+        signal: AbortSignal.timeout(budget[conn.transport])
       })
 
       if (!res.ok) {
