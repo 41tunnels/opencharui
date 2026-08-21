@@ -164,6 +164,16 @@ const BACKOFF_RESET_AFTER_MS = 60_000
  * backstop for any race the session state machine below doesn't name. */
 const HANDSHAKE_TIMEOUT_MS = 15_000
 
+/** How many session failures one connection tolerates before it gives up
+ * and reconnects. A session that cannot be opened is a problem with the
+ * keys, not with the socket underneath — retiring the session and running
+ * a fresh handshake fixes it in one round trip, where dropping the
+ * connection costs a dial, a TLS handshake and a reconnect on the agent's
+ * side too. Mirrors Amallo's `MAX_SESSION_FAILURES` (conn.rs); small,
+ * because the legitimate cause (a peer that redialled mid-session) clears
+ * on the first attempt. */
+const MAX_SESSION_FAILURES = 5
+
 /** Ciphertext frames held while a handshake finishes (spec §4.6). The peer
  * sends its first request the moment it has verified our CONFIRM, which
  * can be before we've installed the session — dropping those would strand
@@ -201,6 +211,11 @@ export class RelayTransport {
   /** Bumped whenever a session is retired, so a frame sealed under the
    * old one can be recognised (and dropped) before it reaches the wire. */
   private sessionEpoch = 0
+  /** Consecutive session failures on the current connection — see
+   * {@link MAX_SESSION_FAILURES}. Reset by any session that establishes. */
+  private sessionFailures = 0
+  /** Tail of the outbound chain — see {@link send}. Never rejects. */
+  private sendChain: Promise<void> = Promise.resolve()
 
   constructor(pairing: PairingInfo, socketFactory: SocketFactory = defaultSocketFactory) {
     this.pairing = pairing
@@ -248,8 +263,35 @@ export class RelayTransport {
 
   /** Encrypts and sends one inner frame. Throws if not currently online —
    * callers are expected to await {@link waitUntilOnline} first if they
-   * need to queue a request before the session exists. */
-  async send(frame: InnerFrame): Promise<void> {
+   * need to queue a request before the session exists.
+   *
+   * Every send is chained onto the previous one, because spec §5.1 is not
+   * a suggestion: one direction has exactly one key and one counter, so
+   * there must be exactly one sealing point driving them. `seal()` awaits
+   * WebCrypto, and `fetch.ts` calls this from as many task chains as
+   * there are in-flight requests — so without the chain, two sends that
+   * overlap across that await both read the same counter before either
+   * increments it. That reuses an AES-GCM nonce (which leaks the
+   * authentication key and the XOR of the two plaintexts) and trips the
+   * peer's exact-counter check, which drops the whole agent connection.
+   * Amallo gets this structurally: its single writer task owns the
+   * sealer, and nothing else can reach it. This is that writer task.
+   *
+   * The chain also fixes the second, quieter hazard: `ws.send` happens
+   * *after* the await, so even correctly-numbered frames could reach the
+   * wire out of counter order. Serialised sealing serialises both. */
+  send(frame: InnerFrame): Promise<void> {
+    // Settled either way, so one failed send never wedges the chain — but
+    // the caller still sees its own rejection through `run`.
+    const run = this.sendChain.then(() => this.sealAndSend(frame))
+    this.sendChain = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return run
+  }
+
+  private async sealAndSend(frame: InnerFrame): Promise<void> {
     const sealer = this.sealer
     const epoch = this.sessionEpoch
     if (!this.ws || !sealer || this.state !== 'online') {
@@ -382,6 +424,7 @@ export class RelayTransport {
     const url = this.pairing.relayUrl.replace(/\/+$/, '') + '/v1/client'
     const ws = this.socketFactory(url)
     this.ws = ws
+    this.sessionFailures = 0
 
     const queue = new AsyncQueue<Uint8Array>()
     const onMessage = (ev: Event) => {
@@ -447,12 +490,37 @@ export class RelayTransport {
         }
 
         if (header.channel === Channel.Ciphertext) {
+          // A session-level failure is scoped to the session. Whatever
+          // went wrong is in the keys, and the socket underneath is
+          // healthy — so retire the session and offer a fresh handshake
+          // rather than hanging up. The peer picks that up automatically
+          // (spec §4.6), and it costs one round trip instead of a
+          // reconnect on both sides. Only a connection that cannot get a
+          // working session at all falls through to a real reconnect.
+          let failure: string | null = null
           if (!this.opener) {
-            // No session, and none in progress: there is no key to
-            // authenticate this with (spec §4.6).
-            throw new Error('relay: ciphertext frame arrived with no established session')
+            // No session, and none in progress: nothing here can be
+            // authenticated, so nothing is acted on. But a peer sending
+            // ciphertext believes a session exists, and the useful reply
+            // to that is a handshake, not a closed socket.
+            failure = 'ciphertext frame arrived with no established session'
+          } else {
+            try {
+              await this.handleCiphertext(payload)
+            } catch (err) {
+              failure = err instanceof Error ? err.message : String(err)
+            }
           }
-          await this.handleCiphertext(payload)
+
+          if (failure !== null) {
+            this.sessionFailures += 1
+            if (this.sessionFailures >= MAX_SESSION_FAILURES) {
+              throw new Error(
+                `relay: giving up after ${this.sessionFailures} session failures: ${failure}`
+              )
+            }
+            await this.startSession(ws, queue)
+          }
           continue
         }
       }
@@ -507,6 +575,7 @@ export class RelayTransport {
 
       this.sealer = outcome.sealer
       this.opener = outcome.opener
+      this.sessionFailures = 0
       this.setState('online')
       // Anything the peer sent between verifying our CONFIRM and now,
       // opened in arrival order — the AEAD counter allows no other.

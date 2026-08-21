@@ -45,6 +45,9 @@ function extractEpk(hello: Uint8Array): Uint8Array {
 
 const WS_OPEN = 1
 const WS_CLOSED = 3
+/** Spec §4.3's fixed HELLO length. A handshake frame of exactly this size
+ * is a HELLO; anything else in a handshake is a CONFIRM. */
+const HELLO_LEN = 147
 
 type SocketListener = (ev: MessageEvent | Event) => void
 
@@ -61,6 +64,11 @@ export class MockAgentSocket implements WebSocketLike {
   private clientHello: Uint8Array | null = null
   private sealer: Sealer | null = null
   private opener: Opener | null = null
+
+  /** Tail of the inbound chain — see {@link send}. */
+  private inbound: Promise<void> = Promise.resolve()
+  /** Tail of the outbound chain — see {@link seal}. */
+  private outbound: Promise<void> = Promise.resolve()
 
   private reqBuffers = new Map<number, { method: string; path: string; headers: [string, string][]; chunks: Uint8Array[] }>()
   private cancelledStreams = new Set<number>()
@@ -113,9 +121,23 @@ export class MockAgentSocket implements WebSocketLike {
     queueMicrotask(() => this.dispatch('close', event))
   }
 
+  /** Decrypting and routing is strictly one frame at a time, chained
+   * here. `Opener.open` checks the expected counter, awaits WebCrypto,
+   * then advances it — so opening two frames concurrently makes the
+   * second read a counter the first has not incremented yet and reject a
+   * perfectly good frame as `counter_mismatch`. The real agent cannot hit
+   * this (conn.rs has one read loop that awaits each frame before reading
+   * the next), and this mock stands in for the real agent, so it has the
+   * same property — including the part where the read loop only ever
+   * *dispatches* a request and never waits for the response (see
+   * {@link handleInner}), so a slow handler cannot delay the CANCEL that
+   * is meant to stop it. */
   send(data: ArrayBufferLike | ArrayBufferView): void {
     const bytes = data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBufferLike)
-    void this.handleClientMessage(bytes)
+    this.inbound = this.inbound.then(
+      () => this.handleClientMessage(bytes),
+      () => this.handleClientMessage(bytes)
+    )
   }
 
   /** Test control: simulate the relay reporting the agent went offline. */
@@ -169,7 +191,30 @@ export class MockAgentSocket implements WebSocketLike {
     }
   }
 
+  /** Test control: emit a channel-0x01 frame this session cannot open —
+   * what the client sees when the peer's keys and its own have diverged
+   * (a redial the notification for got lost, a counter gap). */
+  simulateUnopenableCiphertext(): void {
+    const garbage = crypto.getRandomValues(new Uint8Array(8 + 16 + 4))
+    this.emitRaw(encodeOuter(Channel.Ciphertext, garbage))
+  }
+
   private async handleHandshakeFrame(payload: Uint8Array): Promise<void> {
+    // A HELLO always starts a fresh handshake, whatever state this side
+    // was in. That is what lets a peer recover a broken session in place
+    // (spec §4.6) instead of dropping the connection, and the real agent
+    // behaves the same way — its read loop starts a new handshake on a
+    // bare 0x02 rather than interpreting it against the old session.
+    if (payload.length === HELLO_LEN && this.agentEph) {
+      this.agentEph = null
+      this.myHello = null
+      this.clientHello = null
+      this.sealer = null
+      this.opener = null
+      this.reqBuffers.clear()
+      this.cancelledStreams.clear()
+    }
+
     if (!this.agentEph) {
       // First frame from the client: their HELLO.
       this.agentEph = await generateEphemeral()
@@ -203,6 +248,25 @@ export class MockAgentSocket implements WebSocketLike {
     this.emitRaw(encodeOuter(Channel.Handshake, myConfirm))
   }
 
+  /** The agent side's single sealing point (spec §5.1). Concurrent
+   * request handlers all emit through here, and one direction has one
+   * counter, so the seals have to be serialised the way the real agent's
+   * single writer task serialises them. */
+  private seal(streamId: number, f: Omit<InnerFrame, 'streamId'>): Promise<void> {
+    const run = this.outbound.then(async () => {
+      if (this.cancelledStreams.has(streamId) || !this.sealer) return
+      const inner = encodeInner({ ...f, streamId })
+      const headerBytes = new Uint8Array([Channel.Ciphertext, 0])
+      const sealed = await this.sealer.seal(headerBytes, inner)
+      this.emitRaw(encodeOuter(Channel.Ciphertext, sealed))
+    })
+    this.outbound = run.then(
+      () => undefined,
+      () => undefined
+    )
+    return run
+  }
+
   private async handleInner(frame: InnerFrame): Promise<void> {
     switch (frame.type) {
       case InnerType.Req: {
@@ -228,14 +292,14 @@ export class MockAgentSocket implements WebSocketLike {
           off += c.length
         }
         const streamId = frame.streamId
-        const emit: EmitFn = async (f) => {
-          if (this.cancelledStreams.has(streamId) || !this.sealer) return
-          const inner = encodeInner({ ...f, streamId })
-          const headerBytes = new Uint8Array([Channel.Ciphertext, 0])
-          const sealed = await this.sealer.seal(headerBytes, inner)
-          this.emitRaw(encodeOuter(Channel.Ciphertext, sealed))
-        }
-        await this.handler({ method: buf.method, path: buf.path, headers: buf.headers, body }, emit)
+        const emit: EmitFn = (f) => this.seal(streamId, f)
+        // Detached, exactly as the real agent spawns a task per request
+        // rather than blocking its read loop on one — see the note on
+        // `send`. Awaiting here would hold every later frame (a CANCEL,
+        // or another stream's REQ) behind this response.
+        void Promise.resolve(
+          this.handler({ method: buf.method, path: buf.path, headers: buf.headers, body }, emit)
+        ).catch(() => undefined)
         break
       }
       case InnerType.Cancel:

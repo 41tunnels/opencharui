@@ -457,6 +457,16 @@ export class Sealer {
       this.closed = true
       throw new HandshakeError('counter_exhausted')
     }
+    // Claimed before the await, not after. A caller is required to
+    // serialise its sends (spec §5.1 — see RelayTransport.send), but this
+    // counter is the thing whose reuse is catastrophic, so it does not
+    // rely on being asked nicely: incrementing after `encrypt` resolved
+    // would hand the same counter to any second call that started while
+    // the first was suspended, and two frames under one AES-GCM nonce
+    // leak the authentication key and the XOR of both plaintexts. A
+    // counter burned by a failed encrypt leaves a gap, which the peer
+    // rejects — failing closed, which is the safe side of this trade.
+    this.counter = counter + 1n
     const nonce = makeNonce(this.prefix, counter)
     const aad = makeAad(headerBytes, counter)
     const ciphertext = await crypto.subtle.encrypt(
@@ -469,7 +479,6 @@ export class Sealer {
       this.key,
       asBufferSource(plaintext)
     )
-    this.counter += 1n
     return concatBytes(counterBytes(counter), new Uint8Array(ciphertext))
   }
 }
