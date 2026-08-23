@@ -105,6 +105,11 @@ All app data lives in the browser IndexedDB database `opencharui`:
 
 Existing data from the previous Electron desktop app is **not** migrated automatically.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — pull requests require agreeing to
+the [Individual](CLA.md) or [Entity](CLA-entity.md) CLA.
+
 ## License
 
 Copyright © 41tunnels. Licensed under the [GNU Affero General Public License v3.0 or later](LICENSE).
