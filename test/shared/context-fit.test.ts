@@ -37,6 +37,22 @@ describe('fitMessagesToContext', () => {
     expect(result.messages.at(-1)).toEqual(messages.at(-1))
   })
 
+  it('keeps every leading system message, not just the first', () => {
+    // A compacted chat sends the "story so far" as a second system
+    // message. Trimming that would throw away the very turns it was
+    // written to preserve, so the whole leading run is pinned.
+    const history = Array.from({ length: 40 }, (_, i) =>
+      msg(i % 2 === 0 ? 'user' : 'assistant', 400, String(i % 10))
+    )
+    const messages = [msg('system', 400, 'c'), msg('system', 400, 's'), ...history]
+
+    const result = fitMessagesToContext(messages, { contextTokens: 2048, reserveTokens: 512 })
+
+    expect(result.dropped).toBeGreaterThan(0)
+    expect(result.messages.slice(0, 2)).toEqual(messages.slice(0, 2))
+    expect(estimatePromptTokens(result.messages)).toBeLessThanOrEqual(2048 - 512)
+  })
+
   it('keeps the system prompt and the final turn whatever happens', () => {
     const system = msg('system', 4000, 's')
     const last = msg('user', 4000, 'q')

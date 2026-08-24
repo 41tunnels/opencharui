@@ -290,15 +290,16 @@ const save = async () => {
             </span>
           </div>
           <p class="mb-2 text-xs ui-text-subtle">
-            Once a chat outgrows the model's context, its older turns are folded into these notes
-            and the recent ones keep being sent in full. Nothing is deleted — clearing this sends
-            the whole history again.
+            Once enough new messages pile up, this chat's older turns are folded into these notes
+            and the recent ones keep being sent in full. How often that happens, and how much stays
+            verbatim, is set under History compression in Settings. Nothing is deleted — clearing
+            this sends the whole history again.
           </p>
           <textarea
             v-model="summary"
             rows="8"
             :disabled="summaryBusy"
-            placeholder="No summary yet. One is written automatically when the chat grows large, or you can build it now."
+            placeholder="No summary yet. One is written automatically as the chat grows, or you can build it now."
             class="ui-input w-full resize-y font-mono text-xs"
           />
           <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -345,6 +346,13 @@ const save = async () => {
             @click="save"
           >
             Save settings
+          </button>
+          <button
+            type="button"
+            class="ui-btn-ghost px-4 py-2 text-sm"
+            @click="router.push({ name: 'chat', params: { id: chatId } })"
+          >
+            Back to chat
           </button>
           <span v-if="saveError" class="text-sm ui-text-accent">{{ saveError }}</span>
         </div>

@@ -1,10 +1,6 @@
 import type { OpenCharUiApi } from '@shared/api'
 import type { Character, LLMStatus, Persona } from '@shared/types'
-import {
-  normalizeSavedMessages,
-  parseChatSave,
-  prepareChatImport
-} from '@shared/chat-schema'
+import { normalizeSavedMessages, parseChatSave, prepareChatImport } from '@shared/chat-schema'
 import * as characters from './db/characters'
 import * as personas from './db/personas'
 import * as chats from './db/chats'
@@ -170,7 +166,9 @@ export const createBrowserApi = (): OpenCharUiApi => {
       list: async () => pairing.listSavedPairings(),
       getStatus: async () => {
         const s = await getSettings()
-        const active = s.activePairingId ? await pairing.getSavedPairing(s.activePairingId) : undefined
+        const active = s.activePairingId
+          ? await pairing.getSavedPairing(s.activePairingId)
+          : undefined
         return {
           paired: await pairing.isPaired(),
           activeId: s.activePairingId,
@@ -299,6 +297,10 @@ export const createBrowserApi = (): OpenCharUiApi => {
       },
       editLastAssistantMessage: (chatId: string, content: string) =>
         chatGen.editLastAssistantMessage(chatId, content),
+      compactIfDue: async (chatId: string) => {
+        const result = await compaction.compactChatIfDue(chatId)
+        return result ? { folded: result.folded, keptVerbatim: result.keptVerbatim } : null
+      },
       rebuildSummary: async (chatId: string) => {
         const result = await compaction.rebuildChatSummary(chatId)
         return result ? { folded: result.folded, keptVerbatim: result.keptVerbatim } : null
@@ -315,7 +317,8 @@ export const createBrowserApi = (): OpenCharUiApi => {
       onThinking: (callback) => subscribe('chat:thinking', callback),
       onDone: (callback) => subscribe('chat:done', callback),
       onError: (callback) => subscribe('chat:error', callback),
-      onCancelled: (callback) => subscribe('chat:cancelled', callback)
+      onCancelled: (callback) => subscribe('chat:cancelled', callback),
+      onCompacting: (callback) => subscribe('chat:compacting', callback)
     }
   }
 }

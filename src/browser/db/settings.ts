@@ -1,12 +1,26 @@
 import { get, getAll, put } from './index'
 import type { AppSettings } from '@shared/types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/prompt-builder'
+import {
+  DEFAULT_COMPACTION_INTERVAL,
+  DEFAULT_COMPACTION_KEEP_RECENT,
+  DEFAULT_COMPACTION_MAX_TOKENS,
+  DEFAULT_COMPACTION_PROMPT,
+  DEFAULT_COMPACTION_TEMPERATURE,
+  DEFAULT_COMPACTION_TOP_P
+} from '@shared/compaction'
 
 const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
   ollamaApiKey: '',
-  activePairingId: ''
+  activePairingId: '',
+  compactionPrompt: DEFAULT_COMPACTION_PROMPT,
+  compactionInterval: DEFAULT_COMPACTION_INTERVAL,
+  compactionKeepRecent: DEFAULT_COMPACTION_KEEP_RECENT,
+  compactionTemperature: DEFAULT_COMPACTION_TEMPERATURE,
+  compactionTopP: DEFAULT_COMPACTION_TOP_P,
+  compactionMaxTokens: DEFAULT_COMPACTION_MAX_TOKENS
 }
 
 // A key list rather than one hardcoded `if` per field in both
@@ -27,7 +41,9 @@ export const getSettings = async (): Promise<AppSettings> => {
     const raw = byKey.get(key)
     if (raw === undefined) continue
     try {
-      settings[key] = JSON.parse(raw)
+      // Cast because AppSettings mixes string and number fields, which
+      // narrows the indexed write to `never`. The rows are our own JSON.
+      ;(settings as unknown as Record<string, unknown>)[key] = JSON.parse(raw)
     } catch {
       // ignore invalid rows
     }

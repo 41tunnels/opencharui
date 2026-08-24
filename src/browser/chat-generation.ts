@@ -12,7 +12,12 @@ import {
 } from './db/chats'
 import { getSettings } from './db/settings'
 import * as ollama from './llm/ollama'
-import { buildMessages, buildOpeningMessages, deriveChatTitle, renderCharacterTemplate } from '@shared/prompt-builder'
+import {
+  buildMessages,
+  buildOpeningMessages,
+  deriveChatTitle,
+  renderCharacterTemplate
+} from '@shared/prompt-builder'
 import {
   resolveChatGenerationParams,
   resolveChatContextWindowSize,
@@ -20,7 +25,7 @@ import {
   toOllamaKeepAlive
 } from '@shared/chat-settings'
 import { fitMessagesToContext } from '@shared/context-usage'
-import { compactChatIfNeeded } from './chat-compaction'
+import { awaitCompaction } from './chat-compaction'
 import type { Message } from '@shared/types'
 
 type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -126,13 +131,16 @@ const resolvePromptContext = async (chatId: string) => {
   }
 }
 
-/** Folds older turns into the chat's summary when the prompt has grown too
- * large, before the prompt for this generation is built. Returns nothing:
- * the result is read back through `resolvePromptContext`, so a compaction
- * that failed simply leaves the previous summary in place. */
+/** Waits out a compaction pass that is still running before the prompt for
+ * this generation is built — the summary is part of that prompt, and a
+ * pass that lands halfway through would leave the folded turns in it.
+ *
+ * It never *starts* a pass: compaction is triggered while the user types
+ * (see `chat.compactIfDue`), so sending stays off the summarisation path.
+ * Returns nothing — the result is read back through `resolvePromptContext`,
+ * so a compaction that failed simply leaves the previous summary in place. */
 const compactBeforeGenerating = async (chatId: string): Promise<void> => {
-  const { modelId } = await resolveModel(chatId)
-  await compactChatIfNeeded(chatId, modelId)
+  await awaitCompaction(chatId)
 }
 
 const streamAssistantReply = async (
@@ -241,7 +249,9 @@ export const generateOpeningMessage = async (
   const character = await getCharacter(chat.characterId)
   if (!character) throw new Error('Character not found')
 
-  const existingAssistant = (await getMessages(chatId)).find((message) => message.role === 'assistant')
+  const existingAssistant = (await getMessages(chatId)).find(
+    (message) => message.role === 'assistant'
+  )
   if (existingAssistant) {
     return { messageId: existingAssistant.id, content: existingAssistant.content }
   }
@@ -311,7 +321,10 @@ export const sendUserMessage = async (
 const buildRegenerationPrompt = async (
   chatId: string,
   lastAssistantId: string
-): Promise<{ messages: ChatMessage[]; generationParams: ReturnType<typeof resolveChatGenerationParams> }> => {
+): Promise<{
+  messages: ChatMessage[]
+  generationParams: ReturnType<typeof resolveChatGenerationParams>
+}> => {
   await compactBeforeGenerating(chatId)
   const { systemPrompt, character, persona, contextWindowSize, generationParams, compaction } =
     await resolvePromptContext(chatId)
@@ -449,7 +462,10 @@ export const editLastUserMessage = async (
   }
 }
 
-export const editLastAssistantMessage = async (chatId: string, content: string): Promise<Message> => {
+export const editLastAssistantMessage = async (
+  chatId: string,
+  content: string
+): Promise<Message> => {
   const trimmed = content.trim()
   if (!trimmed) throw new Error('Message cannot be empty')
 

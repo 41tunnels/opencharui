@@ -113,6 +113,12 @@ export interface OpenCharUiApi {
     editLastUserMessage(chatId: string, content: string): Promise<Message>
     editLastAssistantMessage(chatId: string, content: string): Promise<Message>
     deleteMessage(chatId: string, messageId: string): Promise<void>
+    /** Fold older turns into the chat's summary if enough have accrued
+     * since the last pass. Called while the user types, so the cost lands
+     * in dead time rather than in front of the reply; resolves null when
+     * nothing was due. Safe to call repeatedly — a pass already running is
+     * joined rather than duplicated. */
+    compactIfDue(chatId: string): Promise<{ folded: number; keptVerbatim: number } | null>
     /** Rebuild the rolling summary from the whole history. Resolves null
      * when the chat is too short to be worth compacting. */
     rebuildSummary(chatId: string): Promise<{ folded: number; keptVerbatim: number } | null>
@@ -125,5 +131,6 @@ export interface OpenCharUiApi {
     onDone(callback: (event: { chatId: string; messageId: string }) => void): () => void
     onError(callback: (event: { chatId: string; error: string }) => void): () => void
     onCancelled(callback: (event: { chatId: string }) => void): () => void
+    onCompacting(callback: (event: { chatId: string; active: boolean }) => void): () => void
   }
 }
