@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { saveSettings } from '@browser/db/settings'
 import { invalidateOllamaBaseUrl } from '@browser/llm/ollama'
 import { saveCharacter, getCharacter } from '@browser/db/characters'
+import { addMessage, createChat, getChat } from '@browser/db/chats'
 import { characterNamespace, chatNamespace } from '@browser/sync/namespaces'
 import { getSyncStatus, syncNow } from '@browser/sync/engine'
 import * as meta from '@browser/sync/meta'
@@ -130,6 +131,125 @@ describe('sync engine: apply order', () => {
     expect(charSpy).toHaveBeenCalledTimes(1)
     expect(chatSpy).toHaveBeenCalledTimes(1)
     expect(charSpy.mock.invocationCallOrder[0]).toBeLessThan(chatSpy.mock.invocationCallOrder[0])
+  })
+})
+
+describe('sync engine: direction', () => {
+  // Push runs before pull, so a pulled record is normally either newer than
+  // the local copy or the local copy's own echo. The exception is the window
+  // between the two — a reply streaming in, a message typed — where the pull
+  // response describes a chat that is already out of date by the time it
+  // lands. Applying it there is not a merge: `applySyncedChat` drops the
+  // chat's whole message list and rewrites it from the payload.
+  const scriptedClock = (start = 1_000_000): { advance: (ms: number) => void } => {
+    let now = start
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    return { advance: (ms: number) => { now += ms } }
+  }
+
+  /** Re-routes fetch so `during` runs once, before the first pull resolves. */
+  const injectDuringPull = (during: () => Promise<void>): void => {
+    const routed = globalThis.fetch as typeof fetch
+    let fired = false
+    vi.stubGlobal('fetch', async (input: string | URL, init?: RequestInit) => {
+      if (!fired && String(input).includes('/extended/v1/pull')) {
+        fired = true
+        await during()
+      }
+      return routed(input, init)
+    })
+  }
+
+  const seedSyncedChat = async (clock: { advance: (ms: number) => void }): Promise<string> => {
+    const character = await saveCharacter({ id: crypto.randomUUID(), name: 'Elara' })
+    const chat = await createChat(character.id)
+    clock.advance(1000)
+    await addMessage(chat.id, 'user', 'first')
+    await syncNow()
+    return chat.id
+  }
+
+  it('keeps locally-newer messages and pushes them back instead of applying a staler server copy', async () => {
+    const server = setup()
+    const clock = scriptedClock()
+    const chatId = await seedSyncedChat(clock)
+
+    // Another device renames the chat: a real edit with a newer envelope,
+    // made without ever seeing the message this device is about to write.
+    const { sha256Hex } = await import('@browser/sync/hash')
+    const stored = server.records.get(`chats:${chatId}`)!
+    const renamed = { ...(stored.data as Record<string, unknown>), title: 'Renamed elsewhere' }
+    await server.handlePush({
+      records: [{ namespace: 'chats', key: chatId, hash: await sha256Hex(JSON.stringify(renamed)), updatedAt: 1_002_000, data: renamed }]
+    })
+
+    injectDuringPull(async () => {
+      clock.advance(5000)
+      await addMessage(chatId, 'assistant', 'streamed mid-pass')
+    })
+
+    const status = await syncNow()
+    expect(status.state).toBe('idle')
+
+    const local = await getChat(chatId)
+    expect(local!.messages.map((m) => m.content)).toEqual(['first', 'streamed mid-pass'])
+
+    // ...and the same pass carried it the other way, so the two sides agree.
+    const after = server.records.get(`chats:${chatId}`)!
+    expect((after.data as { messages: unknown[] }).messages).toHaveLength(2)
+    expect(after.deleted).toBe(false)
+  })
+
+  it('still applies a server copy that is genuinely newer', async () => {
+    const server = setup()
+    const clock = scriptedClock()
+    const chatId = await seedSyncedChat(clock)
+
+    const { sha256Hex } = await import('@browser/sync/hash')
+    const stored = server.records.get(`chats:${chatId}`)!
+    const base = stored.data as { messages: Record<string, unknown>[] }
+    const withReply = {
+      ...(stored.data as Record<string, unknown>),
+      messages: [
+        ...base.messages,
+        { id: crypto.randomUUID(), chatId, role: 'assistant', content: 'answered elsewhere', createdAt: 1_004_000 }
+      ]
+    }
+    await server.handlePush({
+      records: [{ namespace: 'chats', key: chatId, hash: await sha256Hex(JSON.stringify(withReply)), updatedAt: 1_004_000, data: withReply }]
+    })
+
+    const status = await syncNow()
+    expect(status.state).toBe('idle')
+    const local = await getChat(chatId)
+    expect(local!.messages.map((m) => m.content)).toEqual(['first', 'answered elsewhere'])
+  })
+
+  it('declines a tombstone that predates the local messages, and resurrects the chat server-side', async () => {
+    const server = setup()
+    const clock = scriptedClock()
+    const chatId = await seedSyncedChat(clock)
+
+    const { EMPTY_HASH } = await import('@browser/sync/hash')
+    await server.handlePush({
+      records: [{ namespace: 'chats', key: chatId, hash: EMPTY_HASH, updatedAt: 1_002_000, deleted: true }]
+    })
+
+    injectDuringPull(async () => {
+      clock.advance(5000)
+      await addMessage(chatId, 'user', 'still talking here')
+    })
+
+    const status = await syncNow()
+    expect(status.state).toBe('idle')
+
+    const local = await getChat(chatId)
+    expect(local).not.toBeNull()
+    expect(local!.messages.map((m) => m.content)).toEqual(['first', 'still talking here'])
+
+    const after = server.records.get(`chats:${chatId}`)!
+    expect(after.deleted).toBe(false)
+    expect((after.data as { messages: unknown[] }).messages).toHaveLength(2)
   })
 })
 

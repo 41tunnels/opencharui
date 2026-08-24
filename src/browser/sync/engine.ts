@@ -211,15 +211,44 @@ interface ApplyCounts {
   deleted: number
 }
 
+interface PageOutcome {
+  /** At least one record from this page landed in the local store. */
+  appliedRemote: boolean
+  /** At least one record was DECLINED because the local copy is newer, so
+   * the pass owes the server a push in the other direction. */
+  localWon: boolean
+}
+
 const rankOf = (namespaceByName: Map<string, (typeof NAMESPACES)[number]>, name: string): number =>
   namespaceByName.get(name)?.rank ?? 0
+
+/** Decides the direction for one pulled record: `true` to let it overwrite
+ * what this device holds, `false` to keep the local copy and push it back.
+ *
+ * Strictly-newer is the bar, matching Amallo's `store::records::wins()` —
+ * ties go to the incoming record so two devices holding different content
+ * under the same stamp still converge (the loser's next push then reads as
+ * a duplicate) instead of each refusing the other forever. */
+const remoteWins = async (
+  ns: (typeof NAMESPACES)[number],
+  record: RecordWire,
+  data: unknown
+): Promise<boolean> => {
+  const local = await ns.localStamp(record.key)
+  if (local === null) return true // nothing here to lose
+  const remote = record.deleted
+    ? record.updatedAt
+    : (ns.remoteStamp?.(data, record.updatedAt) ?? record.updatedAt)
+  return remote >= local
+}
 
 const applyPage = async (
   records: RecordWire[],
   namespaceByName: Map<string, (typeof NAMESPACES)[number]>,
   counts: Map<string, ApplyCounts>
-): Promise<boolean> => {
+): Promise<PageOutcome> => {
   let appliedAny = false
+  let localWon = false
   const dataRecords = records
     .filter((r) => !r.deleted)
     .sort((a, b) => rankOf(namespaceByName, a.namespace) - rankOf(namespaceByName, b.namespace))
@@ -231,6 +260,14 @@ const applyPage = async (
     const ns = namespaceByName.get(record.namespace)
     if (!ns) continue // a namespace this build doesn't know about - ignore, don't crash
     const hydrated = await fromBlobRefs(record.data)
+    if (!(await remoteWins(ns, record, hydrated))) {
+      // Our copy is newer — applying would throw away local work
+      // (`applySyncedChat` replaces a chat's whole message list). Leave the
+      // ack alone too: a stale ack is exactly what makes this record a push
+      // candidate on the way back out.
+      localWon = true
+      continue
+    }
     const ok = await ns.applyData(record.key, hydrated, record.updatedAt)
     if (!ok) {
       console.warn(`[sync] skipped invalid ${record.namespace} record ${record.key}`)
@@ -255,6 +292,13 @@ const applyPage = async (
   for (const record of tombstoneRecords) {
     const ns = namespaceByName.get(record.namespace)
     if (!ns) continue
+    if (!(await remoteWins(ns, record, undefined))) {
+      // The record was edited here after that delete was recorded
+      // elsewhere. Same rule as above, and the push back out resurrects it
+      // server-side for the same reason it wins here.
+      localWon = true
+      continue
+    }
     await ns.applyDelete(record.key)
     await recordTombstone(record.namespace, record.key, record.updatedAt)
     const c = counts.get(ns.name) ?? { data: 0, deleted: 0 }
@@ -272,7 +316,7 @@ const applyPage = async (
     })
   }
 
-  return appliedAny
+  return { appliedRemote: appliedAny, localWon }
 }
 
 // --- the pass -------------------------------------------------------------
@@ -307,6 +351,7 @@ const runSync = async (): Promise<SyncStatus> => {
   emit({ state: 'syncing', error: undefined })
 
   let appliedRemote = false
+  let localWon = false
   let reconciling = false
 
   try {
@@ -352,8 +397,9 @@ const runSync = async (): Promise<SyncStatus> => {
         throw err
       }
 
-      const pageApplied = await applyPage(page.records, namespaceByName, counts)
-      appliedRemote = appliedRemote || pageApplied
+      const outcome = await applyPage(page.records, namespaceByName, counts)
+      appliedRemote = appliedRemote || outcome.appliedRemote
+      localWon = localWon || outcome.localWon
 
       // Advance the cursor only after the whole page has applied - a crash
       // mid-page re-pulls it next time, and every apply above is
@@ -367,6 +413,20 @@ const runSync = async (): Promise<SyncStatus> => {
     for (const [name, namespaceCounts] of counts) {
       const ns = namespaceByName.get(name)
       if (ns?.afterApply) await ns.afterApply(namespaceCounts)
+    }
+
+    // Sync in the other direction for anything the pull declined. Cheap to
+    // re-derive rather than track: `gatherPushCandidates` compares content
+    // against each ack, and a declined record's ack still holds the hash
+    // the server had (its own, after a `superseded` push, or a stale local
+    // one), so exactly the records that still differ go back up. Records
+    // written locally *during* this pass ride along, which is the same
+    // window that made the pull stale in the first place.
+    if (localWon) {
+      const repushBlobs = new Map<string, Uint8Array>()
+      const repushCandidates = await gatherPushCandidates(repushBlobs)
+      await uploadPendingBlobs(repushBlobs)
+      await pushCandidates(repushCandidates)
     }
 
     const now = Date.now()

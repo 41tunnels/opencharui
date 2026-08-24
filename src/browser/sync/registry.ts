@@ -59,6 +59,32 @@ export interface SyncNamespace {
    * locally (idempotent, per the contract above). */
   applyDelete(key: string): Promise<void>
 
+  /**
+   * Effective modification time of the LOCAL record with this key, or
+   * `null` if this device does not hold it. This is what decides sync
+   * DIRECTION: a pulled record is applied only when it is strictly newer
+   * than this (see `remoteStamp`); when the local copy is newer the engine
+   * keeps it and re-pushes it instead.
+   *
+   * MUST fold in the timestamps of any child rows the record owns — a
+   * chat's messages carry their own `createdAt`, and the parent's
+   * `updatedAt` can lag behind the newest of them. MUST also be the same
+   * number `list()` puts on that record's envelope, or the two sides
+   * disagree about which copy is newer: the server ranks pushes by the
+   * envelope (`store/records.rs`'s `wins()`), this ranks pulls.
+   */
+  localStamp(key: string): Promise<number | null>
+
+  /**
+   * Effective modification time of a PULLED record, from its envelope
+   * `updatedAt` and hydrated document. Defaults to `updatedAt`; override
+   * where the document carries child timestamps the envelope can lag, so a
+   * record written by an older client that did not fold them in is still
+   * ranked on its real content. Tombstones carry no document and are
+   * always ranked on `updatedAt` alone.
+   */
+  remoteStamp?(data: unknown, updatedAt: number): number
+
   /** Runs once per sync pass (not per page), after every record of this
    * namespace across every pulled page has applied. `counts` are the
    * totals for this pass. */
