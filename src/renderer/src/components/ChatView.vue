@@ -22,11 +22,16 @@ const props = defineProps<{
   streamingText: string
   thinkingText: string
   isGenerating: boolean
+  /** A history compaction pass is running for this chat. */
+  isCompacting: boolean
+  summary?: string
+  summarizedThrough?: string
   error: string | null
 }>()
 
 const emit = defineEmits<{
   send: [content: string]
+  typing: []
   abort: []
   regenerate: []
   regenerateMultiple: [count: number]
@@ -86,7 +91,9 @@ const contextUsage = computed(() => {
     messages: props.messages,
     historyWindow: props.contextWindowSize,
     modelContextTokens: props.modelContextTokens,
-    draftInput: input.value
+    draftInput: input.value,
+    summary: props.summary,
+    summarizedThrough: props.summarizedThrough
   })
 })
 
@@ -178,6 +185,27 @@ watch(isRegeneratingLastAssistant, () => {
   regenerationPreviewIndex.value = null
 })
 
+// Compaction is triggered by typing rather than by sending: a
+// summarisation pass is a full model call, and the pause between
+// keystrokes is the one moment in a chat when nobody is waiting on it.
+// `compactIfDue` is cheap when nothing is due and joins a pass already
+// running, so there is nothing to guard beyond the debounce.
+const TYPING_COMPACTION_DEBOUNCE_MS = 800
+let typingTimer: ReturnType<typeof setTimeout> | undefined
+
+const cancelTypingTimer = () => {
+  clearTimeout(typingTimer)
+  typingTimer = undefined
+}
+
+watch(input, (draft) => {
+  cancelTypingTimer()
+  if (!draft.trim() || props.isGenerating) return
+  typingTimer = setTimeout(() => emit('typing'), TYPING_COMPACTION_DEBOUNCE_MS)
+})
+
+onUnmounted(cancelTypingTimer)
+
 const scrollToBottom = async () => {
   await nextTick()
   requestAnimationFrame(() => {
@@ -247,6 +275,7 @@ watch(
 const submit = () => {
   const text = input.value.trim()
   if (!text || props.isGenerating) return
+  cancelTypingTimer()
   input.value = ''
   emit('send', text)
 }
@@ -649,9 +678,16 @@ const requestDelete = (message: Message) => {
           class="flex shrink-0 flex-row items-center justify-between gap-2 md:flex-col md:items-end md:justify-between md:gap-1.5 md:self-stretch"
         >
           <div
-            v-if="tokenSpeedLabel || contextUsageLabel"
+            v-if="tokenSpeedLabel || contextUsageLabel || isCompacting"
             class="ui-mono-sm flex flex-row items-center gap-2 tabular-nums md:flex-col md:items-end md:gap-1"
           >
+            <p
+              v-if="isCompacting"
+              class="ui-text-subtle animate-pulse"
+              title="Folding older turns into the story-so-far summary"
+            >
+              compressing...
+            </p>
             <p v-if="tokenSpeedLabel" class="ui-text-subtle" title="Estimated output speed">
               {{ tokenSpeedLabel }}
             </p>

@@ -34,15 +34,30 @@ describe('historyAfterSummary', () => {
 })
 
 describe('buildMessages with a summary', () => {
-  it('puts the summary in the system message and drops the folded turns', () => {
-    const prompt = buildMessages('Stay in character.', character, undefined, history, 'now what?', 20, {
-      summary: 'They met at the pool and argued.',
-      summarizedThrough: 'm2'
-    })
+  it('sends the summary as its own system message and drops the folded turns', () => {
+    const prompt = buildMessages(
+      'Stay in character.',
+      character,
+      undefined,
+      history,
+      'now what?',
+      20,
+      {
+        summary: 'They met at the pool and argued.',
+        summarizedThrough: 'm2'
+      }
+    )
 
+    // The character block stays what it was; the recap rides after it as a
+    // separate system message rather than being mixed into who the
+    // character is.
     expect(prompt[0].role).toBe('system')
-    expect(prompt[0].content).toContain('They met at the pool and argued.')
-    expect(prompt[0].content).toMatch(/story so far/i)
+    expect(prompt[0].content).toContain('Stay in character.')
+    expect(prompt[0].content).not.toMatch(/story so far/i)
+
+    expect(prompt[1].role).toBe('system')
+    expect(prompt[1].content).toMatch(/story so far/i)
+    expect(prompt[1].content).toContain('They met at the pool and argued.')
 
     // m1/m2 are represented by the summary now, not by their own turns.
     expect(prompt.map((m) => m.content)).not.toContain('first')
@@ -51,9 +66,42 @@ describe('buildMessages with a summary', () => {
     expect(prompt.at(-1)).toEqual({ role: 'user', content: 'now what?' })
   })
 
+  it('resolves {{char}} and {{user}} inside the summary', () => {
+    const persona = { id: 'p1', name: 'John' }
+    const prompt = buildMessages(
+      'Stay in character.',
+      character,
+      persona,
+      history,
+      'now what?',
+      20,
+      {
+        summary: '{{user}} promised {{char}} a peach.',
+        summarizedThrough: 'm2'
+      }
+    )
+
+    expect(prompt[1].content).toContain('John promised Elara a peach.')
+  })
+
   it('is unchanged from before when no summary exists', () => {
-    const withoutCompaction = buildMessages('Stay in character.', character, undefined, history, 'now what?', 20)
-    const withEmpty = buildMessages('Stay in character.', character, undefined, history, 'now what?', 20, {})
+    const withoutCompaction = buildMessages(
+      'Stay in character.',
+      character,
+      undefined,
+      history,
+      'now what?',
+      20
+    )
+    const withEmpty = buildMessages(
+      'Stay in character.',
+      character,
+      undefined,
+      history,
+      'now what?',
+      20,
+      {}
+    )
 
     expect(withEmpty).toEqual(withoutCompaction)
     expect(withoutCompaction.map((m) => m.content)).toContain('first')

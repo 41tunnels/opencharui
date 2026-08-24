@@ -35,6 +35,10 @@ export const useAppStore = defineStore('app', () => {
    * dropped the moment real content arrives. */
   const thinkingText = ref('')
   const isGenerating = ref(false)
+  /** Chat whose history is being compressed right now, or null. Drives the
+   * composer's "compressing…" line — the pass runs while the user types,
+   * so nothing else in the UI would show that the model is busy. */
+  const compactingChatId = ref<string | null>(null)
   const error = ref<string | null>(null)
   const uiState = ref<AppUiState>({ ...DEFAULT_UI_STATE })
 
@@ -284,6 +288,7 @@ export const useAppStore = defineStore('app', () => {
     streamingText,
     thinkingText,
     isGenerating,
+    compactingChatId,
     error,
     uiState,
     refreshCharacters,

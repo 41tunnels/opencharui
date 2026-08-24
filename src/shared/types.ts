@@ -183,6 +183,18 @@ export interface AppSettings {
    * db/pairings.ts) — the relay URL/pair id/PSK indirection all live there
    * now, since a user can have several saved pairings. Empty = no pairing. */
   activePairingId: string
+  /** Instruction sent when folding older turns into a chat's summary. The
+   * previous summary is prepended automatically; see
+   * `buildSummaryInstruction` in @shared/compaction. */
+  compactionPrompt: string
+  /** Compress once this many messages have accrued past the summary. */
+  compactionInterval: number
+  /** Never compress the most recent this-many messages. */
+  compactionKeepRecent: number
+  /** Sampling for the summarisation call, independent of the chat's own. */
+  compactionTemperature: number
+  compactionTopP: number
+  compactionMaxTokens: number
 }
 
 /** One saved Relay pairing (a QR-scanned Amallo instance). Stored in the
@@ -251,6 +263,14 @@ export interface ChatChunkEvent {
 export interface ChatThinkingEvent {
   chatId: string
   delta: string
+}
+
+/** A background compaction pass starting (`active: true`) or finishing.
+ * Drives the composer's "compressing…" line — the pass runs while the user
+ * types, so nothing else in the UI would show that the model is busy. */
+export interface ChatCompactingEvent {
+  chatId: string
+  active: boolean
 }
 
 export interface ChatDoneEvent {

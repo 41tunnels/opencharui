@@ -1,5 +1,5 @@
 import { resolveChatSystemPrompt } from './chat-settings'
-import { buildSystemContent } from './prompt-builder'
+import { buildSummaryPart, buildSystemContent, historyAfterSummary } from './prompt-builder'
 import type { Character, Chat, Message, Persona } from './types'
 
 const CHARS_PER_TOKEN = 4
@@ -34,15 +34,21 @@ export const computeContextUsage = (params: {
   historyWindow: number
   modelContextTokens: number
   draftInput?: string
+  /** The chat's rolling summary, so the gauge measures the prompt that is
+   * actually sent rather than the whole history. */
+  summary?: string
+  summarizedThrough?: string
 }): ContextUsage => {
   const systemPrompt = resolveChatSystemPrompt(params.chat as Chat, params.globalSystemPrompt)
-  const history = params.messages
+  const history = historyAfterSummary(params.messages, params.summarizedThrough)
     .filter((message) => message.role === 'user' || message.role === 'assistant')
     .slice(-params.historyWindow)
 
   const system = buildSystemContent(systemPrompt, params.character, params.persona)
+  const summaryPart = buildSummaryPart(params.summary)
   const promptMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
     ...(system ? [{ role: 'system' as const, content: system }] : []),
+    ...(summaryPart ? [{ role: 'system' as const, content: summaryPart }] : []),
     ...history.map((message) => ({
       role: message.role as 'user' | 'assistant',
       content: message.content
@@ -75,10 +81,13 @@ export const formatContextUsageLabel = (usage: ContextUsage): string => {
  * tokens remain — `done_reason: "length"`, mid-sentence. Ollama truncates
  * silently in that case, so nothing downstream can tell this happened.
  *
- * The leading system message and the final turn are never dropped: without
- * them the model has no character and no question to answer. If those two
- * alone exceed the budget there is nothing useful left to trim, and the
- * prompt is returned as-is for the server to deal with.
+ * The leading system messages and the final turn are never dropped: without
+ * them the model has no character and no question to answer. The whole
+ * leading run is pinned, not just the first — a compacted chat sends the
+ * "story so far" as a second system message, and trimming that would throw
+ * away the very turns it was written to preserve. If those alone exceed the
+ * budget there is nothing useful left to trim, and the prompt is returned
+ * as-is for the server to deal with.
  *
  * `estimateTokenCount` runs about a quarter high against a real tokenizer,
  * which is the safe direction here — it trims a little more than strictly
@@ -93,8 +102,10 @@ export const fitMessagesToContext = <T extends { role: string; content: string }
     return { messages, dropped: 0 }
   }
 
-  const head = messages.length > 0 && messages[0].role === 'system' ? messages.slice(0, 1) : []
-  const rest = messages.slice(head.length)
+  let headLength = 0
+  while (headLength < messages.length && messages[headLength].role === 'system') headLength++
+  const head = messages.slice(0, headLength)
+  const rest = messages.slice(headLength)
   const last = rest.slice(-1)
   const middle = rest.slice(0, Math.max(0, rest.length - 1))
 

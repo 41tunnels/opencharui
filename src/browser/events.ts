@@ -1,6 +1,7 @@
 import type {
   ChatCancelledEvent,
   ChatChunkEvent,
+  ChatCompactingEvent,
   ChatDoneEvent,
   ChatErrorEvent,
   ChatThinkingEvent
@@ -12,6 +13,7 @@ type ChatEventMap = {
   'chat:done': ChatDoneEvent
   'chat:error': ChatErrorEvent
   'chat:cancelled': ChatCancelledEvent
+  'chat:compacting': ChatCompactingEvent
 }
 
 type Handler<T> = (payload: T) => void

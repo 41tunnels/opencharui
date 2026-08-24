@@ -3,30 +3,21 @@
 //
 // The policy lives in `@shared/compaction`; this module is the part that
 // touches the model and the database.
+//
+// Compaction runs *while the user types* (see `chat.compactIfDue` in
+// api.ts), not in front of the reply — a summarisation pass is a full
+// non-streaming model call, and paying for it during dead time is the
+// whole point. `awaitCompaction` is what the generation path uses to join
+// a pass that is still running instead of building a prompt from a summary
+// that is about to change.
 import { getCharacter } from './db/characters'
 import { getChat, getMessages, saveChatSummary } from './db/chats'
 import { getSettings } from './db/settings'
+import { emit } from './events'
 import * as ollama from './llm/ollama'
-import { buildMessages } from '@shared/prompt-builder'
-import {
-  buildSummaryInstruction,
-  planCompaction,
-  renderFoldedTranscript
-} from '@shared/compaction'
-import { estimatePromptTokens } from '@shared/context-usage'
-import {
-  resolveChatContextWindowSize,
-  resolveChatGenerationParams,
-  resolveChatSystemPrompt
-} from '@shared/chat-settings'
-
-/** Room the summary itself is allowed to take. Deliberately small: it is
- * read every turn for the rest of the chat's life. */
-const SUMMARY_MAX_TOKENS = 600
-
-/** Low, because this is a recall task. Sampling creatively here invents
- * events that the story is then obliged to honour. */
-const SUMMARY_TEMPERATURE = 0.2
+import { buildSummaryInstruction, planCompaction, renderFoldedTranscript } from '@shared/compaction'
+import { resolveChatGenerationParams, toOllamaKeepAlive } from '@shared/chat-settings'
+import type { AppSettings } from '@shared/types'
 
 export interface CompactionResult {
   folded: number
@@ -34,16 +25,39 @@ export interface CompactionResult {
   summaryChars: number
 }
 
+/** One pass per chat at a time. A second caller joins the running promise
+ * rather than starting a duplicate model call — the typing trigger fires
+ * repeatedly, and the send path awaits whatever it finds here. */
+const inFlight = new Map<string, Promise<CompactionResult | null>>()
+
+const summaryParams = (settings: AppSettings) => ({
+  temperature: settings.compactionTemperature,
+  topP: settings.compactionTopP,
+  maxTokens: settings.compactionMaxTokens
+})
+
 /**
- * Compacts `chatId` if its prompt has grown past the threshold, and
- * returns what it did (or null if it did nothing). Failures are reported
- * as null rather than thrown: a summary that could not be written is a
- * missed optimisation, and must not cost the user their message.
+ * Compacts `chatId` if enough messages have accrued since the last pass,
+ * and returns what it did (or null if it did nothing). Failures are
+ * reported as null rather than thrown: a summary that could not be written
+ * is a missed optimisation, and must not cost the user their message.
  */
-export const compactChatIfNeeded = async (
-  chatId: string,
-  modelId: string
-): Promise<CompactionResult | null> => {
+export const compactChatIfDue = (chatId: string): Promise<CompactionResult | null> => {
+  const running = inFlight.get(chatId)
+  if (running) return running
+
+  const pass = runCompaction(chatId).finally(() => inFlight.delete(chatId))
+  inFlight.set(chatId, pass)
+  return pass
+}
+
+/** Resolves once no compaction is in flight for `chatId`. Never starts
+ * one — the typing trigger owns that decision. */
+export const awaitCompaction = async (chatId: string): Promise<void> => {
+  await inFlight.get(chatId)
+}
+
+const runCompaction = async (chatId: string): Promise<CompactionResult | null> => {
   try {
     const chat = await getChat(chatId)
     if (!chat) return null
@@ -52,48 +66,47 @@ export const compactChatIfNeeded = async (
     if (!character) return null
 
     const settings = await getSettings()
-    const systemPrompt = resolveChatSystemPrompt(chat, settings.systemPrompt)
     const history = (await getMessages(chatId)).filter((m) => m.role !== 'system')
-
-    // What the prompt costs apart from the uncompacted history: the system
-    // block (character card, persona, current summary) plus the turn about
-    // to be sent. Built through the real prompt builder so the estimate
-    // cannot drift from what is actually sent.
-    const scaffold = buildMessages(
-      systemPrompt,
-      character,
-      chat.persona,
-      [],
-      '',
-      resolveChatContextWindowSize(chat),
-      { summary: chat.summary, summarizedThrough: chat.summarizedThrough }
-    )
 
     const plan = planCompaction({
       messages: history,
       summarizedThrough: chat.summarizedThrough,
-      fixedTokens: estimatePromptTokens(scaffold),
-      contextTokens: await ollama.getModelContextLength(modelId)
+      interval: settings.compactionInterval,
+      keepRecent: settings.compactionKeepRecent
     })
     if (!plan) return null
+
+    const modelId = chat.modelId ?? (await ollama.getDefaultModelId())
+    if (!modelId) return null
 
     const transcript = renderFoldedTranscript(plan.fold, {
       character: character.name,
       user: chat.persona?.name ?? 'User'
     })
 
-    const summary = await ollama.complete({
-      modelId,
-      messages: [
-        { role: 'system', content: buildSummaryInstruction(chat.summary) },
-        { role: 'user', content: transcript }
-      ],
-      temperature: SUMMARY_TEMPERATURE,
-      maxTokens: SUMMARY_MAX_TOKENS,
-      // The model is already loaded for the reply that follows; leave that
-      // untouched rather than imposing this chat's keep-alive here.
-      keepAlive: undefined
-    })
+    // Announced only once there is really a pass to run: the typing trigger
+    // calls in on every keystroke pause, and most of those do nothing.
+    emit('chat:compacting', { chatId, active: true })
+    let summary: string
+    try {
+      summary = await ollama.complete({
+        modelId,
+        messages: [
+          {
+            role: 'system',
+            content: buildSummaryInstruction(settings.compactionPrompt, chat.summary)
+          },
+          { role: 'user', content: transcript }
+        ],
+        ...summaryParams(settings),
+        // Compaction now runs before the reply is even requested, so honour
+        // the chat's keep-alive here: it leaves the model warm for the turn
+        // the user is in the middle of typing.
+        keepAlive: toOllamaKeepAlive(resolveChatGenerationParams(chat, character).keepAliveMinutes)
+      })
+    } finally {
+      emit('chat:compacting', { chatId, active: false })
+    }
 
     if (!summary.trim()) return null
 
@@ -113,7 +126,7 @@ export const compactChatIfNeeded = async (
 }
 
 /**
- * Rebuilds a chat's summary from scratch, ignoring the threshold — backs
+ * Rebuilds a chat's summary from scratch, ignoring the interval — backs
  * the "rebuild" action in chat settings, and the recovery path when a
  * summary has drifted. Throws, unlike the automatic path: here the user
  * asked for it and is waiting for the result.
@@ -126,13 +139,14 @@ export const rebuildChatSummary = async (chatId: string): Promise<CompactionResu
   const character = await getCharacter(chat.characterId)
   if (!character) throw new Error('Character not found')
 
+  const settings = await getSettings()
   const history = (await getMessages(chatId)).filter((m) => m.role !== 'system')
   const plan = planCompaction({
     messages: history,
     summarizedThrough: undefined,
-    fixedTokens: 0,
-    // Forces a plan whenever there is enough history to be worth folding.
-    contextTokens: 1
+    // Forces a plan whenever there is anything at all to fold.
+    interval: 1,
+    keepRecent: settings.compactionKeepRecent
   })
   if (!plan) return null
 
@@ -140,7 +154,7 @@ export const rebuildChatSummary = async (chatId: string): Promise<CompactionResu
   const summary = await ollama.complete({
     modelId: chat.modelId,
     messages: [
-      { role: 'system', content: buildSummaryInstruction() },
+      { role: 'system', content: buildSummaryInstruction(settings.compactionPrompt) },
       {
         role: 'user',
         content: renderFoldedTranscript(plan.fold, {
@@ -149,9 +163,8 @@ export const rebuildChatSummary = async (chatId: string): Promise<CompactionResu
         })
       }
     ],
-    temperature: SUMMARY_TEMPERATURE,
-    maxTokens: SUMMARY_MAX_TOKENS,
-    keepAlive: params.keepAliveMinutes === undefined ? undefined : params.keepAliveMinutes
+    ...summaryParams(settings),
+    keepAlive: toOllamaKeepAlive(params.keepAliveMinutes)
   })
 
   if (!summary.trim()) throw new Error('The model returned an empty summary')

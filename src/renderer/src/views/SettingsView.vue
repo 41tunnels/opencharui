@@ -1,24 +1,38 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
 import type { AppSettings, SyncStatus } from '@shared/types'
 import { DEFAULT_SYSTEM_PROMPT } from '@shared/prompt-builder'
+import {
+  DEFAULT_COMPACTION_INTERVAL,
+  DEFAULT_COMPACTION_KEEP_RECENT,
+  DEFAULT_COMPACTION_MAX_TOKENS,
+  DEFAULT_COMPACTION_PROMPT,
+  DEFAULT_COMPACTION_TEMPERATURE,
+  DEFAULT_COMPACTION_TOP_P
+} from '@shared/compaction'
 import { DEFAULT_OLLAMA_URL } from '@browser/llm/ollama'
 import { formatRelativeTime } from '@shared/format-time'
 import { useAppStore } from '@renderer/stores/app'
+import NumberInput from '@renderer/components/NumberInput.vue'
 import PairingPanel from '@renderer/components/PairingPanel.vue'
 
-const router = useRouter()
 const store = useAppStore()
 const settings = ref<AppSettings>({
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   ollamaUrl: '',
   ollamaApiKey: '',
-  activePairingId: ''
+  activePairingId: '',
+  compactionPrompt: DEFAULT_COMPACTION_PROMPT,
+  compactionInterval: DEFAULT_COMPACTION_INTERVAL,
+  compactionKeepRecent: DEFAULT_COMPACTION_KEEP_RECENT,
+  compactionTemperature: DEFAULT_COMPACTION_TEMPERATURE,
+  compactionTopP: DEFAULT_COMPACTION_TOP_P,
+  compactionMaxTokens: DEFAULT_COMPACTION_MAX_TOKENS
 })
 const saved = ref(false)
 const saveError = ref<string | null>(null)
 const systemPromptTextarea = ref<HTMLTextAreaElement | null>(null)
+const compactionPromptTextarea = ref<HTMLTextAreaElement | null>(null)
 
 const syncStatus = ref<SyncStatus>(window.api.sync.getStatus())
 let unsubscribeSync: (() => void) | null = null
@@ -65,17 +79,20 @@ const runSync = async () => {
   syncStatus.value = await window.api.sync.now()
 }
 
-const fitSystemPromptHeight = () => {
-  const textarea = systemPromptTextarea.value
+const fitPromptHeight = (textarea: HTMLTextAreaElement | null) => {
   if (!textarea) return
   textarea.style.height = 'auto'
   textarea.style.height = `${textarea.scrollHeight + 12}px`
 }
 
+const fitSystemPromptHeight = () => fitPromptHeight(systemPromptTextarea.value)
+const fitCompactionPromptHeight = () => fitPromptHeight(compactionPromptTextarea.value)
+
 onMounted(async () => {
   settings.value = await window.api.settings.get()
   await nextTick()
   fitSystemPromptHeight()
+  fitCompactionPromptHeight()
   unsubscribeSync = window.api.sync.onStatusChanged((status) => {
     syncStatus.value = status
   })
@@ -92,7 +109,29 @@ const save = async () => {
   const settingsSnapshot: Partial<AppSettings> = {
     systemPrompt: settings.value.systemPrompt,
     ollamaUrl: settings.value.ollamaUrl.trim(),
-    ollamaApiKey: settings.value.ollamaApiKey.trim()
+    ollamaApiKey: settings.value.ollamaApiKey.trim(),
+    compactionPrompt: settings.value.compactionPrompt,
+    compactionInterval: Number(settings.value.compactionInterval),
+    compactionKeepRecent: Number(settings.value.compactionKeepRecent),
+    compactionTemperature: Number(settings.value.compactionTemperature),
+    compactionTopP: Number(settings.value.compactionTopP),
+    compactionMaxTokens: Number(settings.value.compactionMaxTokens)
+  }
+
+  const numeric = [
+    settingsSnapshot.compactionInterval,
+    settingsSnapshot.compactionKeepRecent,
+    settingsSnapshot.compactionTemperature,
+    settingsSnapshot.compactionTopP,
+    settingsSnapshot.compactionMaxTokens
+  ]
+  if (numeric.some((value) => value === undefined || Number.isNaN(value))) {
+    saveError.value = 'Compression settings must be valid numbers'
+    return
+  }
+  if ((settingsSnapshot.compactionInterval ?? 0) < 1) {
+    saveError.value = 'Compress every … messages must be at least 1'
+    return
   }
 
   try {
@@ -102,22 +141,6 @@ const save = async () => {
     setTimeout(() => (saved.value = false), 2000)
   } catch (err) {
     saveError.value = err instanceof Error ? err.message : 'Failed to save settings'
-  }
-}
-
-const importCharacter = async () => {
-  const character = await window.api.characters.import()
-  if (character) {
-    await store.refreshCharacters()
-    router.push({ name: 'character-edit', params: { id: character.id } })
-  }
-}
-
-const importPersona = async () => {
-  const persona = await window.api.personas.import()
-  if (persona) {
-    await store.refreshPersonas()
-    router.push({ name: 'persona-edit', params: { id: persona.id } })
   }
 }
 
@@ -147,6 +170,78 @@ const refreshOllama = async () => {
           <code class="ui-mono-sm ui-text-strong" v-pre>{{ user }}</code> for the persona name.
         </p>
       </label>
+
+      <div class="ui-card p-5">
+        <h3 class="mb-2 text-sm font-medium">History compression</h3>
+        <p class="mb-3 text-sm ui-text-muted">
+          Long chats fold their older turns into a running &quot;story so far&quot; so the prompt
+          stops growing. Compression runs in the background while you type, and the composer shows
+          <code class="ui-mono-sm ui-text-strong">compressing...</code> while it works. Nothing is
+          deleted — clearing a chat&apos;s summary sends its full history again.
+        </p>
+
+        <label class="mb-3 block">
+          <span class="ui-eyebrow mb-1.5 block">Compression prompt</span>
+          <textarea
+            ref="compactionPromptTextarea"
+            v-model="settings.compactionPrompt"
+            rows="10"
+            class="ui-input w-full resize-none px-3 py-2 text-sm"
+            placeholder="How the model should summarise the folded turns..."
+            @input="fitCompactionPromptHeight"
+          />
+          <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+            Sent as the system message when summarising. The previous summary is prepended
+            automatically, so each pass folds the story forward instead of starting over.
+          </p>
+        </label>
+
+        <div class="mb-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label class="block">
+            <span class="ui-eyebrow mb-1.5 block">Compress every (messages)</span>
+            <NumberInput v-model.number="settings.compactionInterval" :min="1" />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+              How many new messages must pile up before another pass runs.
+            </p>
+          </label>
+          <label class="block">
+            <span class="ui-eyebrow mb-1.5 block">Never compress the last (messages)</span>
+            <NumberInput v-model.number="settings.compactionKeepRecent" :min="0" />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+              Recent turns stay verbatim; the summary carries everything before them.
+            </p>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <label class="block">
+            <span class="ui-eyebrow mb-1.5 block">Temperature</span>
+            <NumberInput
+              v-model.number="settings.compactionTemperature"
+              :step="0.05"
+              :min="0"
+              :max="2"
+            />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+              Low keeps it to recall: sampling creatively here invents events.
+            </p>
+          </label>
+          <label class="block">
+            <span class="ui-eyebrow mb-1.5 block">Top P</span>
+            <NumberInput v-model.number="settings.compactionTopP" :step="0.05" :min="0" :max="1" />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+              Sampling range for the summary. 0.9 matches Ollama&apos;s default.
+            </p>
+          </label>
+          <label class="block">
+            <span class="ui-eyebrow mb-1.5 block">Max tokens</span>
+            <NumberInput v-model.number="settings.compactionMaxTokens" :min="1" />
+            <p class="ui-mono-sm ui-text-subtle mt-1.5 block">
+              Length cap for the summary. It is read on every turn, so keep it small.
+            </p>
+          </label>
+        </div>
+      </div>
 
       <div class="ui-card p-5">
         <h3 class="mb-2 text-sm font-medium">Ollama</h3>
@@ -240,12 +335,6 @@ const refreshOllama = async () => {
 
       <div class="flex flex-wrap gap-3">
         <button class="ui-btn-primary px-4 py-2 text-sm" @click="save">Save settings</button>
-        <button class="ui-btn-outline px-4 py-2 text-sm" @click="importCharacter">
-          Import character (JSON or PNG)
-        </button>
-        <button class="ui-btn-outline px-4 py-2 text-sm" @click="importPersona">
-          Import persona JSON
-        </button>
         <span v-if="saved" class="self-center text-sm ui-text-strong">Saved</span>
         <span v-if="saveError" class="self-center text-sm ui-text-accent">{{ saveError }}</span>
       </div>

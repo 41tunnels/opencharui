@@ -8,11 +8,11 @@ Product and UX requirements for OpenCharUI.
 
 Thoughts and speech must render differently from plain text in **all chat bubbles** (user messages, assistant messages, and streaming text).
 
-| Syntax | Rendering |
-|--------|-----------|
-| `*text*` | Thought — italic at 70% opacity (`.thought-text`) |
-| `**text**` | Same as above (also supported) |
-| `"text"` | Speech — semibold, wrapped in typographic quotes (`.quote-text`) |
+| Syntax     | Rendering                                                        |
+| ---------- | ---------------------------------------------------------------- |
+| `*text*`   | Thought — italic at 70% opacity (`.thought-text`)                |
+| `**text**` | Same as above (also supported)                                   |
+| `"text"`   | Speech — semibold, wrapped in typographic quotes (`.quote-text`) |
 
 - The distinction is **typographic, not chromatic**. The 41tunnels palette carries one
   accent and does not spend it on prose, and reduced opacity stays legible on the
@@ -94,6 +94,34 @@ Each chat has a **Settings** page (from the chat header) with:
 - Empty keep-alive uses Ollama's default; `0` unloads after the reply, `-1` keeps the model loaded indefinitely
 - Per-chat settings are stored on the chat record and included in chat JSON import/export
 - Chat settings and character defaults explain temperature, top P, and max tokens with example values.
+
+## History compression
+
+Long chats fold their older turns into a running summary so the prompt stops growing with the conversation. The raw messages are never deleted — compression only changes what is sent to the model.
+
+### When it runs
+
+- Compression is triggered **while the user is typing** a new message, not when it is sent. A summarisation pass is a full model call, and the pause between keystrokes is the one moment nobody is waiting on it.
+- It fires once **X** messages (default **30**, global setting) have accumulated beyond what the summary already covers, ignoring the most recent **Y** messages (default **10**, global setting).
+- Each pass folds the previous summary together with the newly foldable turns into a new summary.
+- Example with X = 30 and Y = 10: at 100 messages, messages 1–90 are compressed and 91–100 are sent verbatim. Nothing happens again until message 130, which compresses the existing summary plus messages 91–120.
+- Sending a message while a pass is running waits for it, so the prompt is never built from a summary that is about to change. Sending never starts a pass of its own.
+
+### What the model receives
+
+1. `system` — global system prompt, character card, persona, and the chat-specific system prompt (unchanged)
+2. `system` — the compressed history ("Story so far"), when one exists
+3. the messages not yet compressed, oldest first
+4. the message being sent
+
+### Settings
+
+Global **Settings → History compression** holds the editable **compression prompt** and its own **temperature**, **top P**, and **max tokens**, independent of the chat's generation settings. The previous summary is prepended to the prompt automatically. Compression settings are global, not per chat.
+
+### UI
+
+- While a pass runs, the chat composer shows `compressing...` beside the context and speed readouts.
+- Each chat's summary is visible and editable in **Chat settings → Story so far**, with actions to rebuild it from the full history or clear it.
 
 ## Development
 

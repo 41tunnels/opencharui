@@ -61,9 +61,9 @@ export const buildSystemContent = (
   return parts.join('\n\n')
 }
 
-/** The compacted turns, as they appear in the system block. Kept apart
- * from the character description so the model reads it as events that
- * happened rather than as part of who the character is. */
+/** The compacted turns, as they appear in the prompt. Sent as its own
+ * system message after the character block so the model reads it as events
+ * that happened rather than as part of who the character is. */
 export const buildSummaryPart = (summary?: string): string | null => {
   const trimmed = summary?.trim()
   if (!trimmed) return null
@@ -98,15 +98,26 @@ export const buildMessages = (
   historyWindow = HISTORY_WINDOW,
   compaction: PromptCompaction = {}
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> => {
-  const system = buildSystemContent(systemPrompt, character, persona, [
-    buildSummaryPart(compaction.summary)
-  ])
+  const system = buildSystemContent(systemPrompt, character, persona)
+  const summaryPart = buildSummaryPart(compaction.summary)
   const history = historyAfterSummary(chatHistory, compaction.summarizedThrough)
     .filter((m) => m.role === 'user' || m.role === 'assistant')
     .slice(-historyWindow)
     .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
-  return [...(system ? [{ role: 'system' as const, content: system }] : []), ...history, { role: 'user' as const, content: userInput }]
+  return [
+    ...(system ? [{ role: 'system' as const, content: system }] : []),
+    ...(summaryPart
+      ? [
+          {
+            role: 'system' as const,
+            content: renderCharacterTemplate(summaryPart, character, persona)
+          }
+        ]
+      : []),
+    ...history,
+    { role: 'user' as const, content: userInput }
+  ]
 }
 
 export const buildOpeningMessages = (
@@ -115,9 +126,7 @@ export const buildOpeningMessages = (
   persona?: Persona
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> => {
   const greeting = character.greeting?.trim()
-  const renderedGreeting = greeting
-    ? renderCharacterTemplate(greeting, character, persona)
-    : null
+  const renderedGreeting = greeting ? renderCharacterTemplate(greeting, character, persona) : null
   const openingGuidance = renderedGreeting
     ? `Scene direction for your opening (match the tone and situation, but write fresh dialogue — do not repeat these lines verbatim):\n${renderedGreeting}`
     : null

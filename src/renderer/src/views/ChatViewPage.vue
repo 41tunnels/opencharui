@@ -155,6 +155,24 @@ const send = async (content: string) => {
   }
 }
 
+// Fired on a pause in typing. The compaction itself decides whether
+// anything is due; a pass that actually folded turns changed the chat's
+// summary, so re-read it to keep the context gauge honest.
+const compactIfDue = async () => {
+  const chatId = store.activeChat?.id
+  if (!chatId || store.isGenerating) return
+  try {
+    const result = await window.api.chat.compactIfDue(chatId)
+    if (result && store.activeChat?.id === chatId && !store.isGenerating) {
+      await store.loadChat(chatId)
+      syncRawFromChat()
+    }
+  } catch {
+    // A summary that could not be written is a missed optimisation, not
+    // something to interrupt the user's message with.
+  }
+}
+
 const abort = () => {
   if (!store.activeChat) return
   window.api.chat.abort(store.activeChat.id)
@@ -468,8 +486,12 @@ const onTitleBlur = () => {
       :streaming-text="store.streamingText"
       :thinking-text="store.thinkingText"
       :is-generating="store.isGenerating"
+      :is-compacting="store.compactingChatId === store.activeChat.id"
+      :summary="store.activeChat.summary"
+      :summarized-through="store.activeChat.summarizedThrough"
       :error="store.error"
       @send="send"
+      @typing="compactIfDue"
       @abort="abort"
       @regenerate="regenerateLast"
       @regenerate-multiple="regenerateLastMultiple"

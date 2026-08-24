@@ -47,6 +47,7 @@ let unsubThinking: (() => void) | undefined
 let unsubDone: (() => void) | undefined
 let unsubError: (() => void) | undefined
 let unsubCancelled: (() => void) | undefined
+let unsubCompacting: (() => void) | undefined
 let mobileMq: MediaQueryList | undefined
 
 const onMobileMqChange = (event: MediaQueryListEvent) => {
@@ -86,6 +87,9 @@ onMounted(() => {
     void store.handleGenerationCancelled(chatId)
     void store.refreshChats()
   })
+  unsubCompacting = window.api.chat.onCompacting(({ chatId, active }) => {
+    store.compactingChatId = active ? chatId : null
+  })
 })
 
 onUnmounted(() => {
@@ -95,6 +99,7 @@ onUnmounted(() => {
   unsubDone?.()
   unsubError?.()
   unsubCancelled?.()
+  unsubCompacting?.()
 })
 </script>
 
