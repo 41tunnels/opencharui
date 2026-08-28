@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { DEFAULT_OLLAMA_URL } from '@browser/llm/ollama'
 import { useAppStore } from '@renderer/stores/app'
+import { useAmalloDownload } from '@renderer/composables/useAmalloDownload'
 import PairingPanel from './PairingPanel.vue'
 
 const props = defineProps<{
@@ -13,7 +14,12 @@ const router = useRouter()
 const store = useAppStore()
 const checking = ref(false)
 const platformTab = ref<'windows' | 'macos'>('windows')
-const mode = ref<'ollama' | 'amallo'>('ollama')
+// Amallo is the default route in: it needs no OLLAMA_ORIGINS setup and works
+// off the LAN, so it is the shorter path for most people. Plain Ollama stays
+// one click away below.
+const mode = ref<'ollama' | 'amallo'>('amallo')
+
+const { asset: amalloAsset, pageUrl: amalloPageUrl } = useAmalloDownload()
 
 const isDev = import.meta.env.DEV
 const showProductionSetup = computed(() => !isDev || props.previewProduction)
@@ -115,9 +121,36 @@ const openSettings = () => {
             class="ui-text-accent underline underline-offset-2"
             >Ollama</a
           >
-          and Amallo, then scan or paste the pairing code from Amallo's tray menu — no
+          and
+          <a
+            :href="amalloPageUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ui-text-accent underline underline-offset-2"
+            >Amallo</a
+          >, then scan or paste the pairing code from Amallo's tray menu — no
           <code class="ui-mono-sm ui-text-strong">OLLAMA_ORIGINS</code> setup needed.
         </p>
+        <div v-if="mode === 'amallo' && amalloAsset" class="mt-4">
+          <a
+            class="ui-btn-primary inline-block px-4 py-2 text-sm"
+            :href="amalloAsset.url"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {{ amalloAsset.label }}
+          </a>
+          <p class="mt-2 text-xs ui-text-subtle">
+            {{ amalloAsset.note }} ·
+            <a
+              :href="amalloPageUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="ui-text-accent underline underline-offset-2"
+              >All downloads</a
+            >
+          </p>
+        </div>
         <p v-else class="mt-2 text-sm leading-relaxed ui-text-muted">
           Install
           <a
@@ -305,7 +338,7 @@ const openSettings = () => {
           class="ui-text-accent text-sm font-medium underline underline-offset-2"
           @click="mode = 'ollama'"
         >
-          Use Ollama directly
+          Use Ollama directly (only on the same machine or network)
         </button>
       </div>
 
