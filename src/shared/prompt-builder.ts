@@ -159,7 +159,28 @@ Writing in lowercase means normal speaking
 
 Everything between two * are thoughts and feelings
 Everything between two " means quoting
+Everything between two [] means system instruction
 Everything else is normal spoken word`
+
+/** Earlier DEFAULT_SYSTEM_PROMPT values. A stored prompt that matches one
+ * exactly was never edited, so it follows the current default instead.
+ * When the default changes, add the outgoing text here. */
+export const LEGACY_DEFAULT_SYSTEM_PROMPTS: readonly string[] = [
+  `Stay in character at all times. Never mention being an AI or language model. Respond naturally and in first person as the character you are portraying.
+
+{{char}} means the character and is replaced by the character name
+{{user}} means the user and is replaced by the users name
+
+Writing something in uppercase means screaming or yelling
+Writing in lowercase means normal speaking
+
+Everything between two * are thoughts and feelings
+Everything between two " means quoting
+Everything else is normal spoken word`
+]
+
+export const isStockSystemPrompt = (value: string): boolean =>
+  value === DEFAULT_SYSTEM_PROMPT || LEGACY_DEFAULT_SYSTEM_PROMPTS.includes(value)
 
 export const OPENING_USER_PROMPT =
   'Start the roleplay now. Write your opening message in character. Do not mention being an AI or language model.'
