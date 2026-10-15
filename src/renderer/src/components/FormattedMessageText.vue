@@ -14,6 +14,9 @@ const segments = computed(() => parseMessageSegments(props.content))
     <template v-for="(segment, index) in segments" :key="index">
       <span v-if="segment.type === 'thought'" class="thought-text">{{ segment.value }}</span>
       <span v-else-if="segment.type === 'quote'" class="quote-text">{{ segment.value }}</span>
+      <span v-else-if="segment.type === 'instruction'" class="instruction-text">{{
+        segment.value
+      }}</span>
       <span v-else class="spoken-text">{{ segment.value }}</span>
     </template>
   </span>

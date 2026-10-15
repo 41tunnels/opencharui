@@ -8,11 +8,13 @@ Product and UX requirements for OpenCharUI.
 
 Thoughts and speech must render differently from plain text in **all chat bubbles** (user messages, assistant messages, and streaming text).
 
-| Syntax     | Rendering                                                        |
-| ---------- | ---------------------------------------------------------------- |
-| `*text*`   | Thought — italic at 70% opacity (`.thought-text`)                |
-| `**text**` | Same as above (also supported)                                   |
-| `"text"`   | Speech — semibold, wrapped in typographic quotes (`.quote-text`) |
+| Syntax     | Rendering                                                                      |
+| ---------- | ------------------------------------------------------------------------------ |
+| `*text*`   | Thought — italic at 70% opacity (`.thought-text`)                              |
+| `**text**` | Same as above (also supported)                                                 |
+| `"text"`   | Speech — semibold, wrapped in typographic quotes (`.quote-text`)               |
+| `[text]`   | Instruction — mono, 90% size, 60% opacity, brackets kept (`.instruction-text`) |
+| `{text}`   | Same as above; `{{macros}}` are not matched                                    |
 
 - The distinction is **typographic, not chromatic**. The 41tunnels palette carries one
   accent and does not spend it on prose, and reduced opacity stays legible on the

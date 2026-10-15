@@ -1,6 +1,6 @@
-import { get, getAll, put } from './index'
+import { deleteByKey, get, getAll, put } from './index'
 import type { AppSettings } from '@shared/types'
-import { DEFAULT_SYSTEM_PROMPT } from '@shared/prompt-builder'
+import { DEFAULT_SYSTEM_PROMPT, isStockSystemPrompt } from '@shared/prompt-builder'
 import {
   DEFAULT_COMPACTION_INTERVAL,
   DEFAULT_COMPACTION_KEEP_RECENT,
@@ -48,6 +48,12 @@ export const getSettings = async (): Promise<AppSettings> => {
       // ignore invalid rows
     }
   }
+
+  // A stored copy of an old default was never edited — it only got written
+  // because Settings saves every field. Let it follow the current default.
+  if (isStockSystemPrompt(settings.systemPrompt)) {
+    settings.systemPrompt = DEFAULT_SYSTEM_PROMPT
+  }
   return settings
 }
 
@@ -56,9 +62,15 @@ export const saveSettings = async (partial: Partial<AppSettings>): Promise<AppSe
   const next = { ...current, ...partial }
 
   for (const key of SETTINGS_KEYS) {
-    if (partial[key] !== undefined) {
-      await put('settings', { key, value: JSON.stringify(next[key]) })
+    if (partial[key] === undefined) continue
+    // Never store the stock prompt, so a later default change reaches
+    // everyone who did not customise it.
+    if (key === 'systemPrompt' && isStockSystemPrompt(next.systemPrompt)) {
+      next.systemPrompt = DEFAULT_SYSTEM_PROMPT
+      await deleteByKey('settings', key)
+      continue
     }
+    await put('settings', { key, value: JSON.stringify(next[key]) })
   }
 
   return next
