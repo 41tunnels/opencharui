@@ -376,6 +376,15 @@ body {
   .quote-text::after {
     content: '\201D';
   }
+
+  /* [instructions] and {asides}: out-of-story text, set in mono and muted so it
+     reads as a note to the model rather than part of the scene. The brackets
+     stay visible. */
+  .instruction-text {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    opacity: 0.6;
+  }
 }
 
 ::-webkit-scrollbar {
