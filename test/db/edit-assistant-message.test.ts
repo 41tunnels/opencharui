@@ -3,7 +3,7 @@
 // summary is what reaches the model for those turns, so an edit there would
 // look saved but change nothing.
 import 'fake-indexeddb/auto'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { editAssistantMessage } from '@browser/chat-generation'
 import { addMessage, createChat, getMessages, saveChatSummary } from '@browser/db/chats'
 import { saveCharacter } from '@browser/db/characters'
@@ -16,6 +16,15 @@ beforeEach(async () => {
     req.onerror = () => resolve()
     req.onblocked = () => resolve()
   })
+  // Messages are ordered by createdAt alone. Added in a tight loop they can
+  // share a millisecond on a fast runner and come back in random-id order,
+  // so the clock moves on every call.
+  let now = Date.now()
+  vi.spyOn(Date, 'now').mockImplementation(() => (now += 1))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 /** A chat with four user/assistant exchanges; returns the assistant ids, oldest first. */

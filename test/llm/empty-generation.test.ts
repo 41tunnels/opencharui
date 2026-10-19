@@ -45,11 +45,18 @@ beforeEach(async () => {
     req.onerror = () => resolve()
     req.onblocked = () => resolve()
   })
+  // Messages are ordered by createdAt alone, and the greeting and the first
+  // user message can land in the same millisecond on a fast runner, which
+  // returns them in random-id order. A clock that always moves keeps them
+  // in insertion order.
+  let now = Date.now()
+  vi.spyOn(Date, 'now').mockImplementation(() => (now += 1))
   await saveSettings({ ollamaUrl: 'http://ollama.test' })
   invalidateOllamaBaseUrl()
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   invalidateOllamaBaseUrl()
 })
