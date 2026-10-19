@@ -295,8 +295,8 @@ export const createBrowserApi = (): OpenCharUiApi => {
           return handleGenerationError(chatId, err)
         }
       },
-      editLastAssistantMessage: (chatId: string, content: string) =>
-        chatGen.editLastAssistantMessage(chatId, content),
+      editAssistantMessage: (chatId: string, messageId: string, content: string) =>
+        chatGen.editAssistantMessage(chatId, messageId, content),
       compactIfDue: async (chatId: string) => {
         const result = await compaction.compactChatIfDue(chatId)
         return result ? { folded: result.folded, keptVerbatim: result.keptVerbatim } : null

@@ -25,6 +25,7 @@ import {
   toOllamaKeepAlive
 } from '@shared/chat-settings'
 import { fitMessagesToContext } from '@shared/context-usage'
+import { EDITABLE_ASSISTANT_DEPTH, editableAssistantMessageIds } from '@shared/message-editing'
 import { awaitCompaction } from './chat-compaction'
 import type { Message } from '@shared/types'
 
@@ -462,8 +463,9 @@ export const editLastUserMessage = async (
   }
 }
 
-export const editLastAssistantMessage = async (
+export const editAssistantMessage = async (
   chatId: string,
+  messageId: string,
   content: string
 ): Promise<Message> => {
   const trimmed = content.trim()
@@ -473,10 +475,13 @@ export const editLastAssistantMessage = async (
   if (!chat) throw new Error('Chat not found')
 
   const messages = await getMessages(chatId)
-  const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
-  if (!lastAssistant) throw new Error('No assistant message to edit')
+  if (!editableAssistantMessageIds(messages, chat.summarizedThrough).has(messageId)) {
+    throw new Error(
+      `Only the last ${EDITABLE_ASSISTANT_DEPTH} replies that are not yet summarised can be edited`
+    )
+  }
 
-  return updateAssistantMessageContent(lastAssistant.id, trimmed)
+  return updateAssistantMessageContent(messageId, trimmed)
 }
 
 export const selectMessageVariation = async (

@@ -40,6 +40,13 @@ Regenerating the opening assistant message (before any user message) still calls
 - Previous variants are kept; **← / →** navigates between them with a `1 / n` indicator.
 - Only the active variant is used as context for subsequent replies.
 
+### Editing messages
+
+- The latest user message is editable; saving it regenerates the reply when it is the last message.
+- The **last three assistant messages** are editable (`EDITABLE_ASSISTANT_DEPTH` in `src/shared/message-editing.ts`). An edit replaces the active variant and does not regenerate anything.
+- Assistant messages already folded into the chat summary are not editable, since only the summary reaches the model for those turns.
+- Editing is disabled while a reply is generating.
+
 ### Deleting a chat
 
 Deleting a chat must **immediately** abort any in-flight generation for that chat, stop streaming, and avoid saving partial assistant output.

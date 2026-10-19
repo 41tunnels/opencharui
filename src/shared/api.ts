@@ -111,7 +111,8 @@ export interface OpenCharUiApi {
     regenerateLast(chatId: string): Promise<void>
     setVariation(chatId: string, messageId: string, direction: 'prev' | 'next'): Promise<Message>
     editLastUserMessage(chatId: string, content: string): Promise<Message>
-    editLastAssistantMessage(chatId: string, content: string): Promise<Message>
+    /** Edits one of the latest assistant replies (see message-editing.ts). */
+    editAssistantMessage(chatId: string, messageId: string, content: string): Promise<Message>
     deleteMessage(chatId: string, messageId: string): Promise<void>
     /** Fold older turns into the chat's summary if enough have accrued
      * since the last pass. Called while the user types, so the cost lands

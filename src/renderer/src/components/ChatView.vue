@@ -7,6 +7,7 @@ import {
   formatTokenSpeed,
   estimateTokenCount
 } from '@shared/context-usage'
+import { editableAssistantMessageIds } from '@shared/message-editing'
 import FormattedMessageText from '@renderer/components/FormattedMessageText.vue'
 
 const props = defineProps<{
@@ -38,7 +39,7 @@ const emit = defineEmits<{
   variationPrev: [messageId: string]
   variationNext: [messageId: string]
   editUserSave: [content: string]
-  editAssistantSave: [content: string]
+  editAssistantSave: [messageId: string, content: string]
   deleteMessage: [messageId: string]
 }>()
 
@@ -73,6 +74,10 @@ const lastUserMessageId = computed(() => {
   }
   return null
 })
+
+const editableAssistantIds = computed(() =>
+  editableAssistantMessageIds(props.messages, props.summarizedThrough)
+)
 
 const isRegeneratingLastAssistant = computed(() => {
   if (!props.isGenerating) return false
@@ -356,7 +361,7 @@ const isLatestUserMessage = (message: Message): boolean => {
 }
 
 const canEditMessage = (message: Message): boolean => {
-  return isLatestUserMessage(message) || isLatestAssistantMessage(message)
+  return isLatestUserMessage(message) || editableAssistantIds.value.has(message.id)
 }
 
 const isEditingMessage = (message: Message): boolean => {
@@ -433,11 +438,12 @@ const saveEdit = () => {
   if (props.isGenerating && editingMessageRole.value !== 'user') return
   preservedScrollTop.value = scrollRef.value?.scrollTop ?? 0
   const role = editingMessageRole.value
+  const messageId = editingMessageId.value
   cancelEdit()
   if (role === 'user') {
     emit('editUserSave', text)
-  } else if (role === 'assistant') {
-    emit('editAssistantSave', text)
+  } else if (role === 'assistant' && messageId) {
+    emit('editAssistantSave', messageId, text)
   }
 }
 

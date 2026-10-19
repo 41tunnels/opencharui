@@ -287,37 +287,27 @@ const editLastUserMessage = async (content: string) => {
   }
 }
 
-const editLastAssistantMessage = async (content: string) => {
+const editAssistantMessage = async (messageId: string, content: string) => {
   if (!store.activeChat || store.isGenerating) return
   store.error = null
 
-  const messages = store.activeChat.messages
-  let lastAssistantIndex = -1
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.role === 'assistant') {
-      lastAssistantIndex = index
-      break
-    }
-  }
-  const editedMessageId = lastAssistantIndex >= 0 ? messages[lastAssistantIndex]?.id : null
-
-  if (editedMessageId) {
-    store.activeChat.messages = store.activeChat.messages.map((message) =>
-      message.id === editedMessageId ? { ...message, content } : message
-    )
-  }
+  store.activeChat.messages = store.activeChat.messages.map((message) =>
+    message.id === messageId ? { ...message, content } : message
+  )
 
   try {
-    const updated = await window.api.chat.editLastAssistantMessage(store.activeChat.id, content)
+    const updated = await window.api.chat.editAssistantMessage(
+      store.activeChat.id,
+      messageId,
+      content
+    )
     store.activeChat.messages = store.activeChat.messages.map((message) =>
       message.id === updated.id ? { ...message, ...updated } : message
     )
     syncRawFromChat()
   } catch (err) {
     store.error = err instanceof Error ? err.message : 'Failed to edit message'
-    if (editedMessageId) {
-      await store.loadChat(store.activeChat.id)
-    }
+    await store.loadChat(store.activeChat.id)
   }
 }
 
@@ -498,7 +488,7 @@ const onTitleBlur = () => {
       @variation-prev="variationPrev"
       @variation-next="variationNext"
       @edit-user-save="editLastUserMessage"
-      @edit-assistant-save="editLastAssistantMessage"
+      @edit-assistant-save="editAssistantMessage"
       @delete-message="deleteMessage"
     />
   </div>
