@@ -211,13 +211,51 @@ watch(input, (draft) => {
 
 onUnmounted(cancelTypingTimer)
 
+// --- following the newest content -----------------------------------------
+//
+// The view "follows" while the reader sits at the very bottom: new messages,
+// a reply that is still streaming and a viewport resize (rotating a phone,
+// the mobile keyboard, the URL bar) all keep the latest line in view. Any
+// upward scroll stops following, so a reply can be read from the top while
+// it is still being written, and the jump button brings the reader back.
+//
+// Stopping is keyed on the scroll *direction*, not on a distance threshold:
+// a wheel or touch scroll moves a few pixels per frame, and a "within N px
+// counts as the bottom" rule would snap each of those first frames back
+// down while tokens arrive, so the reader could never get away.
+
+/** Below this distance from the bottom the reader is at the bottom; only
+ * absorbs sub-pixel rounding of scrollTop on high-DPI screens. */
+const BOTTOM_EPSILON_PX = 2
+
+const following = ref(true)
+let lastScrollTop = 0
+let observedWidth = 0
+let observedHeight = 0
+const contentRef = ref<HTMLElement | null>(null)
+
+const pinToBottom = () => {
+  const el = scrollRef.value
+  if (!el) return
+  el.scrollTop = el.scrollHeight
+  lastScrollTop = el.scrollTop
+}
+
+/** Scrolls to the bottom once the DOM has caught up, unless the reader has
+ * scrolled away in the meantime. */
 const scrollToBottom = async () => {
   await nextTick()
   requestAnimationFrame(() => {
-    if (scrollRef.value) {
-      scrollRef.value.scrollTop = scrollRef.value.scrollHeight
-    }
+    if (following.value) pinToBottom()
   })
+}
+
+/** Back to the bottom and following again: the jump button, a sent message,
+ * opening a chat. */
+const jumpToBottom = () => {
+  following.value = true
+  pinToBottom()
+  void scrollToBottom()
 }
 
 const restoreScroll = async (scrollTop: number) => {
@@ -231,29 +269,27 @@ const restoreScroll = async (scrollTop: number) => {
 
 const preservedScrollTop = ref<number | null>(null)
 
-// Rotating a phone (or the mobile keyboard / URL bar resizing the viewport)
-// reflows every bubble while scrollTop keeps its old pixel value, so a chat
-// sitting at the latest message ends up somewhere in the middle. Track
-// whether the reader is at the bottom and put them back there whenever the
-// scroller changes size.
-const BOTTOM_THRESHOLD_PX = 48
-let pinnedToBottom = true
-let observedWidth = 0
-let observedHeight = 0
-
-const isAtBottom = (el: HTMLElement): boolean =>
-  el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD_PX
-
 const onScroll = () => {
   const el = scrollRef.value
   if (!el) return
-  // A scroll event caused by the resize itself (the browser clamping
-  // scrollTop) arrives before the ResizeObserver; it says nothing about
-  // where the reader wants to be, so only real scrolls update the pin.
+  const scrollTop = el.scrollTop
+  const scrolledUp = scrollTop < lastScrollTop
+  lastScrollTop = scrollTop
+  // A scroll caused by the resize itself (the browser clamping scrollTop)
+  // arrives before the ResizeObserver; it says nothing about where the
+  // reader wants to be.
   if (el.clientWidth !== observedWidth || el.clientHeight !== observedHeight) return
-  pinnedToBottom = isAtBottom(el)
+  if (el.scrollHeight - scrollTop - el.clientHeight <= BOTTOM_EPSILON_PX) {
+    following.value = true
+  } else if (scrolledUp) {
+    following.value = false
+  }
 }
 
+// One observer for both elements: the scroller changing size (rotation,
+// keyboard) and the message column growing (streamed tokens, a new
+// message, the thinking indicator). Runs after layout and before paint, so
+// a followed reply never shows a frame with its last line cut off.
 const resizeObserver =
   typeof ResizeObserver === 'undefined'
     ? null
@@ -262,9 +298,7 @@ const resizeObserver =
         if (!el) return
         observedWidth = el.clientWidth
         observedHeight = el.clientHeight
-        if (pinnedToBottom && preservedScrollTop.value === null) {
-          el.scrollTop = el.scrollHeight
-        }
+        if (following.value && preservedScrollTop.value === null) pinToBottom()
       })
 
 onMounted(() => {
@@ -273,34 +307,27 @@ onMounted(() => {
   observedWidth = el.clientWidth
   observedHeight = el.clientHeight
   resizeObserver?.observe(el)
+  if (contentRef.value) resizeObserver?.observe(contentRef.value)
 })
 
 onUnmounted(() => resizeObserver?.disconnect())
 
+// Opening a chat starts at its latest message. Everything after that is the
+// observer's job, so streaming no longer drags a reader who scrolled up.
 watch(
-  () => [props.chatId, props.messages.length, props.streamingText, props.isGenerating] as const,
-  (current, previous) => {
-    if (preservedScrollTop.value !== null) return
-
-    const [chatId, messageCount, streamingText, isGenerating] = current
-    const previousChatId = previous?.[0]
-    const previousMessageCount = previous?.[1] ?? messageCount
-
-    if (previous === undefined || chatId !== previousChatId) {
-      void scrollToBottom()
-      return
-    }
-
-    if (isGenerating || streamingText) {
-      void scrollToBottom()
-      return
-    }
-
-    if (messageCount > previousMessageCount) {
-      void scrollToBottom()
-    }
-  },
+  () => props.chatId,
+  () => jumpToBottom(),
   { immediate: true, flush: 'post' }
+)
+
+// Without ResizeObserver the content watch is the only way to follow.
+watch(
+  () => [props.messages.length, props.streamingText, props.isGenerating] as const,
+  () => {
+    if (resizeObserver || preservedScrollTop.value !== null) return
+    void scrollToBottom()
+  },
+  { flush: 'post' }
 )
 
 watch(
@@ -328,6 +355,8 @@ const submit = () => {
   if (!text || props.isGenerating) return
   cancelTypingTimer()
   input.value = ''
+  // The reader just wrote this; show it and follow the reply.
+  jumpToBottom()
   emit('send', text)
 }
 
@@ -543,174 +572,197 @@ const requestDelete = (message: Message) => {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div
-      ref="scrollRef"
-      class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6"
-      @scroll.passive="onScroll"
-    >
+    <div class="relative flex min-h-0 flex-1 flex-col">
       <div
-        v-if="messages.length === 0 && !streamingText"
-        class="flex h-full items-center justify-center"
+        ref="scrollRef"
+        class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6"
+        @scroll.passive="onScroll"
       >
-        <p class="ui-text-muted">
-          Start a conversation{{ characterName ? ` with ${characterName}` : '' }}
-        </p>
-      </div>
-
-      <div class="mx-auto flex max-w-3xl flex-col gap-4">
         <div
-          v-for="message in messages"
-          :key="message.id"
-          class="group flex"
-          :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+          v-if="messages.length === 0 && !streamingText"
+          class="flex h-full items-center justify-center"
         >
-          <div class="max-w-[80%]">
-            <div
-              :ref="(el) => setBubbleRef(el, message.id)"
-              class="px-4 py-3 text-sm leading-relaxed"
-              style="border-radius: var(--radius-3)"
-              :class="[
-                message.role === 'user'
-                  ? 'chat-bubble-user border border-transparent bg-strong text-page'
-                  : 'chat-bubble-assistant ui-raised border border-hairline bg-card text-body',
-                isEditingMessage(message) ? 'flex flex-col' : ''
-              ]"
-              :style="editBubbleStyle(message)"
-            >
-              <p
-                v-if="message.role === 'assistant' && !isEditingMessage(message)"
-                class="ui-mono-sm ui-text-accent mb-1.5"
+          <p class="ui-text-muted">
+            Start a conversation{{ characterName ? ` with ${characterName}` : '' }}
+          </p>
+        </div>
+
+        <div ref="contentRef" class="mx-auto flex max-w-3xl flex-col gap-4">
+          <div
+            v-for="message in messages"
+            :key="message.id"
+            class="group flex"
+            :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+          >
+            <div class="max-w-[80%]">
+              <div
+                :ref="(el) => setBubbleRef(el, message.id)"
+                class="px-4 py-3 text-sm leading-relaxed"
+                style="border-radius: var(--radius-3)"
+                :class="[
+                  message.role === 'user'
+                    ? 'chat-bubble-user border border-transparent bg-strong text-page'
+                    : 'chat-bubble-assistant ui-raised border border-hairline bg-card text-body',
+                  isEditingMessage(message) ? 'flex flex-col' : ''
+                ]"
+                :style="editBubbleStyle(message)"
               >
+                <p
+                  v-if="message.role === 'assistant' && !isEditingMessage(message)"
+                  class="ui-mono-sm ui-text-accent mb-1.5"
+                >
+                  {{ characterName }}
+                </p>
+                <textarea
+                  v-if="isEditingMessage(message)"
+                  :ref="setEditTextareaRef"
+                  v-model="editDraft"
+                  autofocus
+                  class="m-0 min-h-0 w-full flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed outline-none focus:ring-0"
+                  @input="resizeEditTextarea"
+                  @keydown="onEditKeydown"
+                />
+                <FormattedMessageText v-else :content="messageDisplayContent(message)" />
+                <span v-if="isStreamingInMessage(message)" class="animate-pulse">▍</span>
+              </div>
+
+              <div class="mt-2 min-h-8">
+                <div
+                  v-if="isEditingMessage(message)"
+                  class="flex items-center gap-2"
+                  :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+                >
+                  <button type="button" class="ui-micro" @click="cancelEdit">Cancel</button>
+                  <button
+                    type="button"
+                    class="ui-btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                    :disabled="!editDraft.trim()"
+                    @click="saveEdit"
+                  >
+                    Save
+                  </button>
+                </div>
+                <div
+                  v-else-if="showMessageActions(message)"
+                  class="ui-hover-reveal flex flex-wrap items-center gap-2 transition-opacity duration-150"
+                  :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+                >
+                  <button
+                    v-if="canEditMessage(message)"
+                    type="button"
+                    class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
+                    :disabled="isGenerating"
+                    @click="startEdit(message)"
+                  >
+                    Edit
+                  </button>
+                  <template v-if="isLatestAssistantMessage(message)">
+                    <button
+                      type="button"
+                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
+                      :disabled="isGenerating"
+                      @click="emit('regenerate')"
+                    >
+                      Regenerate
+                    </button>
+                    <button
+                      type="button"
+                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
+                      :disabled="isGenerating"
+                      title="Regenerate 3 times"
+                      @click="emit('regenerateMultiple', 3)"
+                    >
+                      ×3
+                    </button>
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
+                        :disabled="!canGoPrev(message)"
+                        title="Previous variation"
+                        @click="goVariationPrev(message)"
+                      >
+                        ←
+                      </button>
+                      <span class="ui-mono-sm ui-text-subtle min-w-[3rem] text-center tabular-nums">
+                        {{ variationLabel(message) }}
+                      </span>
+                      <button
+                        type="button"
+                        class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
+                        :disabled="!canGoNext(message)"
+                        title="Next variation"
+                        @click="goVariationNext(message)"
+                      >
+                        →
+                      </button>
+                    </div>
+                  </template>
+                  <button
+                    type="button"
+                    class="ui-micro ui-micro-danger disabled:cursor-not-allowed disabled:opacity-35"
+                    :disabled="isGenerating"
+                    @click="requestDelete(message)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="isThinking && !streamingText && !isRegeneratingLastAssistant"
+            class="flex justify-start"
+          >
+            <div
+              class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
+              style="border-radius: var(--radius-3)"
+            >
+              <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
                 {{ characterName }}
               </p>
-              <textarea
-                v-if="isEditingMessage(message)"
-                :ref="setEditTextareaRef"
-                v-model="editDraft"
-                autofocus
-                class="m-0 min-h-0 w-full flex-1 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed outline-none focus:ring-0"
-                @input="resizeEditTextarea"
-                @keydown="onEditKeydown"
-              />
-              <FormattedMessageText v-else :content="messageDisplayContent(message)" />
-              <span v-if="isStreamingInMessage(message)" class="animate-pulse">▍</span>
-            </div>
-
-            <div class="mt-2 min-h-8">
-              <div
-                v-if="isEditingMessage(message)"
-                class="flex items-center gap-2"
-                :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-              >
-                <button type="button" class="ui-micro" @click="cancelEdit">Cancel</button>
-                <button
-                  type="button"
-                  class="ui-btn-primary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
-                  :disabled="!editDraft.trim()"
-                  @click="saveEdit"
-                >
-                  Save
-                </button>
-              </div>
-              <div
-                v-else-if="showMessageActions(message)"
-                class="ui-hover-reveal flex flex-wrap items-center gap-2 transition-opacity duration-150"
-                :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-              >
-                <button
-                  v-if="canEditMessage(message)"
-                  type="button"
-                  class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
-                  :disabled="isGenerating"
-                  @click="startEdit(message)"
-                >
-                  Edit
-                </button>
-                <template v-if="isLatestAssistantMessage(message)">
-                  <button
-                    type="button"
-                    class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
-                    :disabled="isGenerating"
-                    @click="emit('regenerate')"
-                  >
-                    Regenerate
-                  </button>
-                  <button
-                    type="button"
-                    class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
-                    :disabled="isGenerating"
-                    title="Regenerate 3 times"
-                    @click="emit('regenerateMultiple', 3)"
-                  >
-                    ×3
-                  </button>
-                  <div class="flex items-center gap-1">
-                    <button
-                      type="button"
-                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
-                      :disabled="!canGoPrev(message)"
-                      title="Previous variation"
-                      @click="goVariationPrev(message)"
-                    >
-                      ←
-                    </button>
-                    <span class="ui-mono-sm ui-text-subtle min-w-[3rem] text-center tabular-nums">
-                      {{ variationLabel(message) }}
-                    </span>
-                    <button
-                      type="button"
-                      class="ui-micro disabled:cursor-not-allowed disabled:opacity-35"
-                      :disabled="!canGoNext(message)"
-                      title="Next variation"
-                      @click="goVariationNext(message)"
-                    >
-                      →
-                    </button>
-                  </div>
-                </template>
-                <button
-                  type="button"
-                  class="ui-micro ui-micro-danger disabled:cursor-not-allowed disabled:opacity-35"
-                  :disabled="isGenerating"
-                  @click="requestDelete(message)"
-                >
-                  Delete
-                </button>
-              </div>
+              <p class="ui-mono ui-text-muted flex items-center gap-2">
+                <span class="animate-pulse">thinking</span>
+                <span v-if="thinkingElapsed > 0" class="tabular-nums">{{ thinkingElapsed }}s</span>
+              </p>
             </div>
           </div>
-        </div>
 
-        <div
-          v-if="isThinking && !streamingText && !isRegeneratingLastAssistant"
-          class="flex justify-start"
-        >
-          <div
-            class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
-            style="border-radius: var(--radius-3)"
-          >
-            <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
-              {{ characterName }}
-            </p>
-            <p class="ui-mono ui-text-muted flex items-center gap-2">
-              <span class="animate-pulse">thinking</span>
-              <span v-if="thinkingElapsed > 0" class="tabular-nums">{{ thinkingElapsed }}s</span>
-            </p>
-          </div>
-        </div>
-
-        <div v-if="streamingText && !isRegeneratingLastAssistant" class="flex justify-start">
-          <div
-            class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
-            style="border-radius: var(--radius-3)"
-          >
-            <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
-              {{ characterName }}
-            </p>
-            <FormattedMessageText :content="streamingText" /><span class="animate-pulse">▍</span>
+          <div v-if="streamingText && !isRegeneratingLastAssistant" class="flex justify-start">
+            <div
+              class="chat-bubble-assistant ui-raised max-w-[80%] border border-hairline bg-card px-4 py-3 text-sm leading-relaxed text-body"
+              style="border-radius: var(--radius-3)"
+            >
+              <p v-if="characterName" class="ui-mono-sm ui-text-accent mb-1.5">
+                {{ characterName }}
+              </p>
+              <FormattedMessageText :content="streamingText" /><span class="animate-pulse">▍</span>
+            </div>
           </div>
         </div>
       </div>
+
+      <button
+        v-if="!following"
+        type="button"
+        class="ui-btn-outline ui-raised absolute bottom-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-card md:bottom-4 md:right-6"
+        title="Scroll to latest message"
+        aria-label="Scroll to latest message"
+        @click="jumpToBottom"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          class="h-5 w-5"
+          aria-hidden="true"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
     </div>
 
     <div
