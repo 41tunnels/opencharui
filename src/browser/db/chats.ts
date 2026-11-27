@@ -263,12 +263,29 @@ export const getMessage = async (messageId: string): Promise<Message | null> => 
   return (await get<Message>('messages', messageId)) ?? null
 }
 
+/** Cuts every assistant message in the chat down to its active variation.
+ * Only the latest assistant reply offers the variation switcher, so once the
+ * user answers it the alternatives can never be picked again — keeping them
+ * would only grow the chat (and every sync push of it). Sweeping the whole
+ * chat rather than just the previous reply also trims chats saved before
+ * this existed, the next time they move on. */
+const collapseAssistantVariations = async (chatId: string): Promise<void> => {
+  const messages = await getAllByIndex<Message>('messages', 'byChatId', chatId)
+  for (const message of messages) {
+    if (message.role !== 'assistant' || (message.variations?.length ?? 1) <= 1) continue
+    const variations = message.variations!
+    const active = variations[message.activeVariationIndex ?? 0] ?? message.content
+    await put('messages', { ...message, content: active, variations: [active], activeVariationIndex: 0 })
+  }
+}
+
 export const addMessage = async (
   chatId: string,
   role: Message['role'],
   content: string,
   options: { truncated?: boolean } = {}
 ): Promise<Message> => {
+  if (role === 'user') await collapseAssistantVariations(chatId)
   const message: Message = {
     id: crypto.randomUUID(),
     chatId,
