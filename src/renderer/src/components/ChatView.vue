@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch, nextTick } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import type { Character, Message, Persona } from '@shared/types'
 import {
   computeContextUsage,
@@ -230,6 +230,52 @@ const restoreScroll = async (scrollTop: number) => {
 }
 
 const preservedScrollTop = ref<number | null>(null)
+
+// Rotating a phone (or the mobile keyboard / URL bar resizing the viewport)
+// reflows every bubble while scrollTop keeps its old pixel value, so a chat
+// sitting at the latest message ends up somewhere in the middle. Track
+// whether the reader is at the bottom and put them back there whenever the
+// scroller changes size.
+const BOTTOM_THRESHOLD_PX = 48
+let pinnedToBottom = true
+let observedWidth = 0
+let observedHeight = 0
+
+const isAtBottom = (el: HTMLElement): boolean =>
+  el.scrollHeight - el.scrollTop - el.clientHeight <= BOTTOM_THRESHOLD_PX
+
+const onScroll = () => {
+  const el = scrollRef.value
+  if (!el) return
+  // A scroll event caused by the resize itself (the browser clamping
+  // scrollTop) arrives before the ResizeObserver; it says nothing about
+  // where the reader wants to be, so only real scrolls update the pin.
+  if (el.clientWidth !== observedWidth || el.clientHeight !== observedHeight) return
+  pinnedToBottom = isAtBottom(el)
+}
+
+const resizeObserver =
+  typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(() => {
+        const el = scrollRef.value
+        if (!el) return
+        observedWidth = el.clientWidth
+        observedHeight = el.clientHeight
+        if (pinnedToBottom && preservedScrollTop.value === null) {
+          el.scrollTop = el.scrollHeight
+        }
+      })
+
+onMounted(() => {
+  const el = scrollRef.value
+  if (!el) return
+  observedWidth = el.clientWidth
+  observedHeight = el.clientHeight
+  resizeObserver?.observe(el)
+})
+
+onUnmounted(() => resizeObserver?.disconnect())
 
 watch(
   () => [props.chatId, props.messages.length, props.streamingText, props.isGenerating] as const,
@@ -497,7 +543,11 @@ const requestDelete = (message: Message) => {
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
-    <div ref="scrollRef" class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6">
+    <div
+      ref="scrollRef"
+      class="min-h-0 flex-1 overflow-y-auto px-3 py-4 md:px-6 md:py-6"
+      @scroll.passive="onScroll"
+    >
       <div
         v-if="messages.length === 0 && !streamingText"
         class="flex h-full items-center justify-center"
